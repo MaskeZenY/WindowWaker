@@ -33,7 +33,7 @@ SwitchWaker is an unofficial native PC port of the 2002 GameCube classic *The Le
 
 ## AI Disclosure & Community Contributions
 
-- **AI Co-Development**: Portions of the Windows adaptation, high framerate (60/120 FPS) interpolation system, and rendering pipelines were built and debugged with the assistance of AI coding assistants (Google Antigravity / Gemini & Claude). The code has been thoroughly tested and verified during gameplay.
+- **AI Co-Development**: Portions of the Windows adaptation, high framerate (60/120 FPS) interpolation system, and rendering pipelines were built and debugged with the assistance of AI coding assistants. The code has been thoroughly tested and verified during gameplay.
 - **Contributions & PRs Welcome**: If you'd like to improve the port, fix edge cases, optimize performance, or add quality-of-life enhancements, **Pull Requests (PR) and issues are very welcome!** Feel free to fork, test, and contribute.
 
 ---
