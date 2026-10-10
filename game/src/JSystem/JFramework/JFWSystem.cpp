@@ -58,19 +58,25 @@ void JFWSystem::firstInit() {
 
 /* 80254E54-802551C0       .text init__9JFWSystemFv */
 void JFWSystem::init() {
+    fprintf(stderr, "[cos] JFWSystem::init step 1\n"); fflush(stderr);
     JUT_ASSERT(101, sInitCalled == false);
 
     if(rootHeap == 0) {
+        fprintf(stderr, "[cos] JFWSystem::init calling firstInit\n"); fflush(stderr);
         firstInit();
+        fprintf(stderr, "[cos] JFWSystem::init firstInit done\n"); fflush(stderr);
     }
 
     sInitCalled = true;
 
+    fprintf(stderr, "[cos] JFWSystem::init creating JKRAram\n"); fflush(stderr);
     JKRAram::create(CSetUpParam::aramAudioBufSize, CSetUpParam::aramGraphBufSize,
                     CSetUpParam::streamPriority,CSetUpParam::decompPriority,
                     CSetUpParam::aPiecePriority);
+    fprintf(stderr, "[cos] JFWSystem::init creating mainThread\n"); fflush(stderr);
     mainThread = new JKRThread(OSGetCurrentThread(), 4);
 
+    fprintf(stderr, "[cos] JFWSystem::init createManager\n"); fflush(stderr);
     JUTVideo::createManager(CSetUpParam::renderMode);
     JUTCreateFifo(CSetUpParam::fifoBufSize);
 

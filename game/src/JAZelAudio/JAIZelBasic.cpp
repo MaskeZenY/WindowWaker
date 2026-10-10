@@ -4045,8 +4045,10 @@ BOOL JAIZelBasic::checkLinkOnBoardSea() {
 
 /* 802AAD94-802AAE80       .text setSceneName__11JAIZelBasicFPcll */
 void JAIZelBasic::setSceneName(char* param_1, s32 roomNo, s32 param_3) {
+    fprintf(stderr, "[cos] setSceneName: spot=%s room=%d param3=%d\n", param_1 ? param_1 : "null", (int)roomNo, (int)param_3); fflush(stderr);
     OSReport("[JAIZelBasic::setSceneName] spot = %s, room = %d\n", param_1, roomNo);
     s32 sceneNum = spotNameToId(param_1);
+    fprintf(stderr, "[cos] setSceneName: sceneNum=0x%x\n", (unsigned int)sceneNum); fflush(stderr);
 #if VERSION > VERSION_DEMO
     if (sceneNum == 0x75) {
         for (int i = 0; i < MAX_CONCURRENT_SE_NUM; i++) {
@@ -4066,7 +4068,9 @@ void JAIZelBasic::setSceneName(char* param_1, s32 roomNo, s32 param_3) {
         field_0x0066 = 0;
     }
 #endif
+    fprintf(stderr, "[cos] setSceneName: calling setScene\n"); fflush(stderr);
     setScene(sceneNum, roomNo, 0, param_3);
+    fprintf(stderr, "[cos] setSceneName: setScene done\n"); fflush(stderr);
 }
 
 /* 802AAE80-802AAF04       .text spotNameToId__11JAIZelBasicFPc */
@@ -4367,7 +4371,7 @@ static void dummy() {
 void JAIZelBasic::loadStaticWaves() {
     /* Nonmatching */
     // "[JAIZelBasic::loadStaticWaves] The permanent scene waveform is not loaded here, but at the very start of gFrameProcess.\n"
-    OSReport("[JAIZelBasic::loadStaticWaves] 常駐シーン波形はここでなく、gFrameProcessの一番最初で読み込まれます。\n");
+    fprintf(stderr, "[cos] [JAIZelBasic::loadStaticWaves] 常駐シーン波形はここでなく、gFrameProcessの一番最初で読み込まれます。\n"); fflush(stderr);
 }
 
 static void dummy2() {
@@ -4464,6 +4468,9 @@ void JAIZelBasic::bgmMute(JAISound** i_sound, u32 i_bgmNum, s32 i_state, u32 i_f
 
 /* 802ABBD0-802ABC3C       .text checkStreamPlaying__11JAIZelBasicFUl */
 int JAIZelBasic::checkStreamPlaying(u32 param_1) {
+    if (!JAInter::StreamMgr::streamUpdate) {
+        return false;
+    }
     JAISound* sound = JAInter::StreamMgr::streamUpdate->mpSound;
     if (!sound) {
         return false;

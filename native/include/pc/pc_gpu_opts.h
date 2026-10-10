@@ -76,6 +76,9 @@ void pc_shadow_offscreen_opened(unsigned int w, unsigned int h, unsigned int cop
 
 /* Zero when COS_DOF=0 (the depth-of-field composite is skipped where that is safe). */
 int pc_dof_enabled(void);
+/* Non-zero when anisotropic and high quality texture filtering is forced (COS_ANISO=1). */
+int pc_aniso_enabled(void);
+void pc_aniso_set(int enabled);
 
 /* COS_MIST_LOWRES: the divisor (0 = off). */
 int pc_mist_lowres(void);

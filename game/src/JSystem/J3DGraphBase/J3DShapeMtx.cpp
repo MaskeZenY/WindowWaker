@@ -35,6 +35,17 @@ static inline u8 cosScaleFlag(u16 index) {
 #define COS_SCALE_FLAG(index) J3DShapeMtx::sCurrentScaleFlag[index]
 #endif
 
+#if TARGET_PC
+#include "pc/pc_interp.h"
+static void J3DFrameInterpConcat(MtxP lhs, MtxP rhs, Mtx out) {
+    if (!pc_interp_lookup_concat_replacement(lhs, rhs, out)) {
+        MTXConcat(lhs, rhs, out);
+    }
+}
+#else
+#define J3DFrameInterpConcat MTXConcat
+#endif
+
 /* 802DB9D8-802DBA1C       .text loadMtxIndx_PNGP__11J3DShapeMtxCFiUs */
 void J3DShapeMtx::loadMtxIndx_PNGP(int mtxNo, u16 index) const {
     J3DFifoLoadIndx(GX_CMD_LOAD_INDX_A, index, 0xB000 | ((u16)(mtxNo * 0x0C)));
@@ -86,7 +97,7 @@ void J3DShapeMtxImm::loadMtxImm_PNCPU(int mtxNo, u16 index) const {
 /* 802DBCB8-802DBD44       .text loadMtxConcatView_PNGP__21J3DShapeMtxConcatViewCFiUs */
 void J3DShapeMtxConcatView::loadMtxConcatView_PNGP(int mtxNo, u16 index) const {
     Mtx mtx;
-    MTXConcat(*j3dSys.getShapePacket()->getBaseMtxPtr(), j3dSys.getModelDrawMtx(index), mtx);
+    J3DFrameInterpConcat(*j3dSys.getShapePacket()->getBaseMtxPtr(), j3dSys.getModelDrawMtx(index), mtx);
     J3DFifoLoadPosMtxImm(mtx, mtxNo * 3);
     loadNrmMtx(mtxNo, index, mtx);
 }
@@ -94,7 +105,7 @@ void J3DShapeMtxConcatView::loadMtxConcatView_PNGP(int mtxNo, u16 index) const {
 /* 802DBD44-802DBDD4       .text loadMtxConcatView_PCPU__21J3DShapeMtxConcatViewCFiUs */
 void J3DShapeMtxConcatView::loadMtxConcatView_PCPU(int mtxNo, u16 index) const {
     Mtx mtx;
-    MTXConcat(*j3dSys.getShapePacket()->getBaseMtxPtr(), j3dSys.getModelDrawMtx(index), mtx);
+    J3DFrameInterpConcat(*j3dSys.getShapePacket()->getBaseMtxPtr(), j3dSys.getModelDrawMtx(index), mtx);
     J3DFifoLoadPosMtxImm(*j3dSys.getShapePacket()->getBaseMtxPtr(), mtxNo * 3);
     loadNrmMtx(mtxNo, index, mtx);
 }
@@ -102,7 +113,7 @@ void J3DShapeMtxConcatView::loadMtxConcatView_PCPU(int mtxNo, u16 index) const {
 /* 802DBDD4-802DBE4C       .text loadMtxConcatView_NCPU__21J3DShapeMtxConcatViewCFiUs */
 void J3DShapeMtxConcatView::loadMtxConcatView_NCPU(int mtxNo, u16 index) const {
     Mtx mtx;
-    MTXConcat(*j3dSys.getShapePacket()->getBaseMtxPtr(), j3dSys.getModelDrawMtx(index), mtx);
+    J3DFrameInterpConcat(*j3dSys.getShapePacket()->getBaseMtxPtr(), j3dSys.getModelDrawMtx(index), mtx);
     J3DFifoLoadPosMtxImm(mtx, mtxNo * 3);
     J3DFifoLoadNrmMtxImm(*j3dSys.getShapePacket()->getBaseMtxPtr(), mtxNo * 3);
 }
@@ -348,10 +359,10 @@ void J3DShapeMtxBBoardConcatView::load() const {
     Mtx mtx;
     if (j3dSys.getModel()->getModelData()->getDrawMtxFlag(mUseMtxIndex) == 0) {
         MtxP anmMtx = j3dSys.getModel()->getAnmMtx(drawMtxIndex);
-        MTXConcat(j3dSys.getViewMtx(), anmMtx, mtx);
+        J3DFrameInterpConcat(j3dSys.getViewMtx(), anmMtx, mtx);
     } else {
         MtxP weightMtx = j3dSys.getModel()->getWeightAnmMtx(drawMtxIndex);
-        MTXConcat(j3dSys.getViewMtx(), weightMtx, mtx);
+        J3DFrameInterpConcat(j3dSys.getViewMtx(), weightMtx, mtx);
     }
 
     J3DCalcBBoardMtx(mtx);
@@ -407,10 +418,10 @@ void J3DShapeMtxYBBoardConcatView::load() const {
     Mtx mtx;
     if (j3dSys.getModel()->getModelData()->getDrawMtxFlag(mUseMtxIndex) == 0) {
         MtxP anmMtx = j3dSys.getModel()->getAnmMtx(drawMtxIndex);
-        MTXConcat(j3dSys.getViewMtx(), anmMtx, mtx);
+        J3DFrameInterpConcat(j3dSys.getViewMtx(), anmMtx, mtx);
     } else {
         MtxP weightMtx = j3dSys.getModel()->getWeightAnmMtx(drawMtxIndex);
-        MTXConcat(j3dSys.getViewMtx(), weightMtx, mtx);
+        J3DFrameInterpConcat(j3dSys.getViewMtx(), weightMtx, mtx);
     }
     J3DCalcYBBoardMtx(mtx);
     J3DFifoLoadPosMtxImm(mtx, 0);

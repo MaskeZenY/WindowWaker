@@ -21,18 +21,19 @@
 
 extern "C" {
 
-__attribute__((weak)) void OSVReport(const char* msg, va_list list) {
+void OSVReport(const char* msg, va_list list) {
     std::vfprintf(stderr, msg, list);
+    std::fflush(stderr);
 }
 
-__attribute__((weak)) void OSReport(const char* msg, ...) {
+void OSReport(const char* msg, ...) {
     va_list args;
     va_start(args, msg);
     OSVReport(msg, args);
     va_end(args);
 }
 
-__attribute__((weak)) void OSPanic(const char* file, int line, const char* msg, ...) {
+void OSPanic(const char* file, int line, const char* msg, ...) {
     std::fputs("[cos_sdk] PANIC: ", stderr);
     va_list args;
     va_start(args, msg);

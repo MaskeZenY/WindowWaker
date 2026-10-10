@@ -30,6 +30,12 @@
 #include <unistd.h>
 #if defined(__SWITCH__)
 #include "cos_switch.h"
+#elif defined(_WIN32)
+#define NOMINMAX
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <dbghelp.h>
+#pragma comment(lib, "dbghelp.lib")
 #else
 #include <dlfcn.h>
 #include <execinfo.h>
@@ -71,6 +77,7 @@ const char* sceneName(int procName) {
     return procName < 0 ? "none" : "?";
 }
 
+#if !defined(__SWITCH__) && !defined(_WIN32)
 const char* signalName(int sig) {
     switch (sig) {
     case SIGSEGV: return "SIGSEGV";
@@ -82,6 +89,7 @@ const char* signalName(int sig) {
     default: return "signal";
     }
 }
+#endif
 
 // Reads one pointer-sized word without faulting; false if the address is not readable.
 bool readWord(uintptr_t addr, uintptr_t* out) {
@@ -120,7 +128,7 @@ int collectFrames(uintptr_t pc, uintptr_t lr, uintptr_t fp, void** frames, int m
     // itself. So lr is listed only when it is not the first chain entry and lies in another
     // function than pc.
     if (lr != 0 && lr != firstRet && n < max) {
-#if defined(__SWITCH__)
+#if defined(__SWITCH__) || defined(_WIN32)
         const bool samePlace = false; // no dladdr: lr is listed, possibly stale
 #else
         Dl_info pcInfo = {};
@@ -180,6 +188,8 @@ void writeImageBase(int fd) {
     // The frames below are printed as offsets into switchwaker.elf, the ELF next to the NRO.
     writef(fd, "[cos] image base=0x%llx: aarch64-none-elf-addr2line -f -C -i -e switchwaker.elf <offset>\n",
            (unsigned long long)cos_switch_image_base());
+#elif defined(_WIN32)
+    writef(fd, "[cos] image base=0x%llx\n", (unsigned long long)(uintptr_t)GetModuleHandleA(nullptr));
 #else
     (void)fd;
 #endif
@@ -203,15 +213,11 @@ void writeFrames(int fd, void** frames, int n, int exact) {
         writef(fd, " 0x%llx", (unsigned long long)a);
     }
     writef(fd, "\n");
-#if defined(__SWITCH__)
-    const uintptr_t base = cos_switch_image_base();
+#if defined(__SWITCH__) || defined(_WIN32)
+    const uintptr_t base = 0;
     for (int i = 0; i < n; i++) {
         const uintptr_t a = (uintptr_t)sites[i];
-        if (a >= base && a - base < (1ull << 30)) {
-            writef(fd, "[cos]   #%d switchwaker.elf+0x%llx\n", i, (unsigned long long)(a - base));
-        } else {
-            writef(fd, "[cos]   #%d 0x%llx\n", i, (unsigned long long)a);
-        }
+        writef(fd, "[cos]   #%d 0x%llx\n", i, (unsigned long long)a);
     }
 #else
     backtrace_symbols_fd(sites, n, fd);
@@ -221,6 +227,8 @@ void writeFrames(int fd, void** frames, int n, int exact) {
 void writeThreadName(int fd) {
 #if defined(__SWITCH__)
     writef(fd, "[cos] thread %llu\n", (unsigned long long)cos_switch_thread_id());
+#elif defined(_WIN32)
+    writef(fd, "[cos] thread %lu\n", (unsigned long)GetCurrentThreadId());
 #else
     char name[64] = "";
     pthread_getname_np(pthread_self(), name, sizeof(name));
@@ -234,7 +242,7 @@ void writeThreadName(int fd) {
 #endif
 }
 
-#if !defined(__SWITCH__)
+#if !defined(__SWITCH__) && !defined(_WIN32)
 void crashReport(int fd, int sig, siginfo_t* info, ucontext_t* uc) {
     uintptr_t addr = (uintptr_t)info->si_addr;
     writef(fd, "[cos] CRASH %s (%d) code=%d addr=0x%llx\n", signalName(sig), sig, info->si_code,
@@ -399,6 +407,92 @@ void installCrashHandler() {
     // libnx's exception handler (switch/native/source/cos_switch.cpp) reports crashes; it adds
     // this state line.
     cos_switch_set_crash_state_writer(writeState);
+#elif defined(_WIN32)
+    SymSetOptions(SYMOPT_UNDNAME | SYMOPT_DEFERRED_LOADS | SYMOPT_LOAD_LINES);
+    SymInitialize(GetCurrentProcess(), NULL, TRUE);
+
+    AddVectoredExceptionHandler(1, [](PEXCEPTION_POINTERS ep) -> LONG {
+        if (ep->ExceptionRecord->ExceptionCode >= 0x80000000 && ep->ExceptionRecord->ExceptionCode != 0xE06D7363) {
+            uintptr_t modBase = (uintptr_t)GetModuleHandleA(nullptr);
+            uintptr_t faultAddr = (uintptr_t)ep->ExceptionRecord->ExceptionAddress;
+            writef(STDERR_FILENO, "[cos] CRASH: ExceptionCode=0x%08X Address=%p (base=%p, rva=0x%llx)\n",
+                   (unsigned int)ep->ExceptionRecord->ExceptionCode,
+                   ep->ExceptionRecord->ExceptionAddress,
+                   (void*)modBase, (unsigned long long)(faultAddr >= modBase ? faultAddr - modBase : faultAddr));
+#if defined(_M_X64)
+            if (ep->ContextRecord) {
+                writef(STDERR_FILENO, "  RIP=%p RSP=%p RBP=%p RAX=%p RBX=%p RCX=%p RDX=%p RSI=%p RDI=%p\n",
+                       (void*)ep->ContextRecord->Rip, (void*)ep->ContextRecord->Rsp, (void*)ep->ContextRecord->Rbp,
+                       (void*)ep->ContextRecord->Rax, (void*)ep->ContextRecord->Rbx, (void*)ep->ContextRecord->Rcx,
+                       (void*)ep->ContextRecord->Rdx, (void*)ep->ContextRecord->Rsi, (void*)ep->ContextRecord->Rdi);
+            }
+#endif
+            writeState(STDERR_FILENO);
+            HANDLE proc = GetCurrentProcess();
+            HANDLE thread = GetCurrentThread();
+
+            char buffer[sizeof(SYMBOL_INFO) + MAX_SYM_NAME * sizeof(TCHAR)] = {};
+            PSYMBOL_INFO pSymbol = (PSYMBOL_INFO)buffer;
+            pSymbol->SizeOfStruct = sizeof(SYMBOL_INFO);
+            pSymbol->MaxNameLen = MAX_SYM_NAME;
+
+            if (ep->ContextRecord) {
+                CONTEXT ctx = *ep->ContextRecord;
+                STACKFRAME64 stackFrame = {};
+                stackFrame.AddrPC.Offset = ctx.Rip;
+                stackFrame.AddrPC.Mode = AddrModeFlat;
+                stackFrame.AddrFrame.Offset = ctx.Rbp;
+                stackFrame.AddrFrame.Mode = AddrModeFlat;
+                stackFrame.AddrStack.Offset = ctx.Rsp;
+                stackFrame.AddrStack.Mode = AddrModeFlat;
+
+                writef(STDERR_FILENO, "Stack trace (StackWalk64):\n");
+                for (int frameNum = 0; frameNum < 32; frameNum++) {
+                    if (!StackWalk64(IMAGE_FILE_MACHINE_AMD64, proc, thread, &stackFrame, &ctx,
+                                     NULL, SymFunctionTableAccess64, SymGetModuleBase64, NULL)) {
+                        break;
+                    }
+                    DWORD64 dwAddress = stackFrame.AddrPC.Offset;
+                    if (dwAddress == 0) break;
+
+                    DWORD64 displacement = 0;
+                    DWORD lineDisplacement = 0;
+                    IMAGEHLP_LINE64 line = {};
+                    line.SizeOfStruct = sizeof(IMAGEHLP_LINE64);
+
+                    const char* symName = "??";
+                    if (SymFromAddr(proc, dwAddress, &displacement, pSymbol)) {
+                        symName = pSymbol->Name;
+                    }
+                    const char* fileName = "??";
+                    int lineNum = 0;
+                    if (SymGetLineFromAddr64(proc, dwAddress, &lineDisplacement, &line)) {
+                        fileName = line.FileName;
+                        lineNum = (int)line.LineNumber;
+                    }
+                    writef(STDERR_FILENO, "  [%d] %p %s at %s:%d\n",
+                           frameNum, (void*)dwAddress, symName, fileName, lineNum);
+                }
+
+                writef(STDERR_FILENO, "Top of stack (RSP=%p):\n", (void*)ep->ContextRecord->Rsp);
+                uintptr_t* sp = (uintptr_t*)ep->ContextRecord->Rsp;
+                for (int i = 0; i < 16; i++) {
+                    __try {
+                        uintptr_t val = sp[i];
+                        DWORD64 disp = 0;
+                        const char* sym = "";
+                        if (SymFromAddr(proc, (DWORD64)val, &disp, pSymbol)) {
+                            sym = pSymbol->Name;
+                        }
+                        writef(STDERR_FILENO, "  sp[%d] = %p %s\n", i, (void*)val, sym);
+                    } __except (EXCEPTION_EXECUTE_HANDLER) {
+                        break;
+                    }
+                }
+            }
+        }
+        return EXCEPTION_CONTINUE_SEARCH;
+    });
 #else
     // Alternate signal stack for this (the main) thread, so a stack overflow still reports.
     static char sAltStack[256 * 1024];
@@ -521,6 +615,8 @@ void pc_panic(const char* file, int line) {
 #if defined(__SWITCH__)
     int n = collectFrames((uintptr_t)__builtin_return_address(0), 0,
                           (uintptr_t)__builtin_frame_address(0), frames, kMaxFrames);
+#elif defined(_WIN32)
+    int n = CaptureStackBackTrace(0, kMaxFrames, frames, nullptr);
 #else
     int n = backtrace(frames, kMaxFrames);
 #endif

@@ -42,7 +42,7 @@ void JASystem::TGlobalChannel::init() {
         sChannel[i].field_0x4 = mgr;
     }
     mgr->mManagedChannels = 256;
-    OSReport("----- JASChannel size : %d\n", sizeof(TChannel));
+    fprintf(stderr, "[cos] ----- JASChannel size : %d\n", (int)sizeof(TChannel)); fflush(stderr);
 }
 
 /* 8028AD50-8028ADE8       .text alloc__Q28JASystem14TGlobalChannelFPQ28JASystem11TChannelMgrUl */

@@ -42,6 +42,8 @@ __pycache__/
 .DS_Store
 .idea/
 .vscode/
-*.swp
-*~
 *.log
+user/
+dist/
+*.zip
+shot-*.png

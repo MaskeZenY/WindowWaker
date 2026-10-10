@@ -27,6 +27,10 @@
 #include <utility>
 #include <vector>
 
+#if defined(_WIN32)
+#include <malloc.h>
+#endif
+
 namespace cos_sdk {
 
 // Raw host memory, aligned for `align` (at least alignof(max_align_t)). Never null: aborts when
@@ -36,12 +40,19 @@ inline void* HostAllocate(std::size_t size, std::size_t align) {
         size = 1;
     }
     void* p;
+#if defined(_WIN32)
+    if (align < sizeof(void*)) {
+        align = sizeof(void*);
+    }
+    p = _aligned_malloc((size + align - 1) & ~(align - 1), align);
+#else
     if (align <= alignof(std::max_align_t)) {
         p = std::malloc(size);
     } else {
         // aligned_alloc needs a size that is a multiple of the (power-of-two) alignment.
         p = std::aligned_alloc(align, (size + align - 1) & ~(align - 1));
     }
+#endif
     if (p == nullptr) {
         std::abort();
     }
@@ -49,7 +60,11 @@ inline void* HostAllocate(std::size_t size, std::size_t align) {
 }
 
 inline void HostFree(void* p) {
+#if defined(_WIN32)
+    _aligned_free(p);
+#else
     std::free(p);
+#endif
 }
 
 // A standard allocator over HostAllocate/HostFree.

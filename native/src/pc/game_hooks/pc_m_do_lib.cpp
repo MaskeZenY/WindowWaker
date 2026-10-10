@@ -4,6 +4,7 @@
 #include "m_Do/m_Do_lib.h"
 #include "dolphin/gx/GX.h"
 #include "dolphin/os/OS.h"
+#include "pc/pc_gpu_opts.h"
 
 // The packet materials (grass, trees, flowers, chains...) come as static display lists from the
 // DOL whose texture address is a BP SETIMAGE3 write of the image's physical address >> 5
@@ -61,9 +62,18 @@ GXTexObj* dlTexImageObj(const void* image, u32 mode0, u32 mode1, u32 image0) {
     e.image0 = image0;
     GXInitTexObj(&e.obj, (void*)image, width, height, (GXTexFmt)format, (GXTexWrapMode)(mode0 & 3),
                  (GXTexWrapMode)((mode0 >> 2) & 3), maxLod > 0.0f ? GX_TRUE : GX_FALSE);
-    GXInitTexObjLOD(&e.obj, hw2MinFilt[(mode0 >> 5) & 7], (mode0 >> 4) & 1 ? GX_LINEAR : GX_NEAR, minLod,
+    GXTexFilter minF = hw2MinFilt[(mode0 >> 5) & 7];
+    GXTexFilter magF = (mode0 >> 4) & 1 ? GX_LINEAR : GX_NEAR;
+    GXAnisotropy aniso = (GXAnisotropy)((mode0 >> 19) & 3);
+    if (pc_aniso_enabled()) {
+        if (magF == GX_NEAR) magF = GX_LINEAR;
+        if (minF == GX_NEAR) minF = GX_LINEAR;
+        else if (minF == GX_NEAR_MIP_NEAR || minF == GX_NEAR_MIP_LIN) minF = GX_LIN_MIP_LIN;
+        aniso = GX_ANISO_4;
+    }
+    GXInitTexObjLOD(&e.obj, minF, magF, minLod,
                     maxLod, (f32)(s8)((mode0 >> 9) & 0xFF) / 32.0f, (mode0 >> 21) & 1 ? GX_TRUE : GX_FALSE,
-                    (mode0 >> 8) & 1 ? GX_FALSE : GX_TRUE, (GXAnisotropy)((mode0 >> 19) & 3));
+                    (mode0 >> 8) & 1 ? GX_FALSE : GX_TRUE, aniso);
     return &e.obj;
 }
 }  // namespace

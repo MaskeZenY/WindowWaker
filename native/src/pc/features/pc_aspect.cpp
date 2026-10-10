@@ -1,5 +1,6 @@
 // COS_ASPECT: the widescreen option (native/include/pc/pc_aspect.h, docs/WIDESCREEN.md).
 #include "pc/pc_aspect.h"
+#include "pc/pc_settings.h"
 
 #include "pc_internal.h"
 
@@ -27,6 +28,9 @@ const char* sBadValue = nullptr;
 
 int parse() {
     const char* v = getenv("COS_ASPECT");
+    if (v == nullptr || v[0] == '\0') {
+        v = pc_settings_get("COS_ASPECT");
+    }
     if (v == nullptr || v[0] == '\0') {
         return PC_ASPECT_4_3;
     }

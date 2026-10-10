@@ -14,8 +14,14 @@
 #include <cctype>
 #include <cstdio>
 #include <string>
+#ifdef _WIN32
+#define NOMINMAX
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#else
 #include <sys/mman.h>
 #include <unistd.h>
+#endif
 #include <zlib.h>
 
 #include "Common/CommonTypes.h"
@@ -72,6 +78,29 @@ void ToLower(std::string* str)
                  [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
 }
 
+#ifdef _WIN32
+void* AllocateMemoryPages(size_t size)
+{
+  return VirtualAlloc(nullptr, size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+}
+
+bool FreeMemoryPages(void* ptr, size_t)
+{
+  return ptr == nullptr || VirtualFree(ptr, 0, MEM_RELEASE) != 0;
+}
+
+bool WriteProtectMemory(void* ptr, size_t size, bool)
+{
+  DWORD old_protect;
+  return VirtualProtect(ptr, size, PAGE_READONLY, &old_protect) != 0;
+}
+
+bool UnWriteProtectMemory(void* ptr, size_t size, bool)
+{
+  DWORD old_protect;
+  return VirtualProtect(ptr, size, PAGE_READWRITE, &old_protect) != 0;
+}
+#else
 void* AllocateMemoryPages(size_t size)
 {
   void* ptr = mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
@@ -94,6 +123,7 @@ bool UnWriteProtectMemory(void* ptr, size_t size, bool)
 {
   return mprotect(ptr, size, PROT_READ | PROT_WRITE) == 0;
 }
+#endif
 }  // namespace Common
 
 // --- Services the high-level DSP (DSPHLE) reaches; only ucode dumping and

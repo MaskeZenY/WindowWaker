@@ -66,25 +66,40 @@ void JAIBasic::initInterface(u8) {
 
 /* 8028FD04-8028FDC0       .text initInterfaceMain__8JAIBasicFv */
 void JAIBasic::initInterfaceMain() {
+    fprintf(stderr, "[cos] JAIBasic::initInterfaceMain calling initHeap\n"); fflush(stderr);
     initHeap();
+    fprintf(stderr, "[cos] JAIBasic::initInterfaceMain calling initResourcePath\n"); fflush(stderr);
     initResourcePath();
+    fprintf(stderr, "[cos] JAIBasic::initInterfaceMain calling initArchive\n"); fflush(stderr);
     initArchive();
+    fprintf(stderr, "[cos] JAIBasic::initInterfaceMain calling initReadFile\n"); fflush(stderr);
     if (initReadFile()) {
+        fprintf(stderr, "[cos] JAIBasic::initInterfaceMain initReadFile passed\n"); fflush(stderr);
         if (!field_0xe.flag1) {
             JAInter::BankWave::setWaveScene();
         }
+        fprintf(stderr, "[cos] JAIBasic::initInterfaceMain DummyObjectMgr::init\n"); fflush(stderr);
         JAInter::DummyObjectMgr::init();
+        fprintf(stderr, "[cos] JAIBasic::initInterfaceMain Fx::init\n"); fflush(stderr);
         JAInter::Fx::init();
+        fprintf(stderr, "[cos] JAIBasic::initInterfaceMain SequenceMgr::init\n"); fflush(stderr);
         JAInter::SequenceMgr::init();
+        fprintf(stderr, "[cos] JAIBasic::initInterfaceMain SeMgr::init\n"); fflush(stderr);
         JAInter::SeMgr::init();
+        fprintf(stderr, "[cos] JAIBasic::initInterfaceMain StreamMgr::init\n"); fflush(stderr);
         JAInter::StreamMgr::init();
+        fprintf(stderr, "[cos] JAIBasic::initInterfaceMain HeapMgr::init\n"); fflush(stderr);
         JAInter::HeapMgr::init(JAIGlobalParameter::stayHeapMax, JAIGlobalParameter::stayHeapSize, JAIGlobalParameter::autoHeapMax, JAIGlobalParameter::autoHeapRoomSize);
+        fprintf(stderr, "[cos] JAIBasic::initInterfaceMain initCamera\n"); fflush(stderr);
         initCamera();
+        fprintf(stderr, "[cos] JAIBasic::initInterfaceMain initStream\n"); fflush(stderr);
         initStream();
+        fprintf(stderr, "[cos] JAIBasic::initInterfaceMain startSeSequence\n"); fflush(stderr);
         JAInter::SeMgr::startSeSequence();
         if (!field_0xe.flag1) {
             JAInter::SequenceMgr::checkEntriedSeq();
         }
+        fprintf(stderr, "[cos] JAIBasic::initInterfaceMain all done!\n"); fflush(stderr);
     }
 }
 

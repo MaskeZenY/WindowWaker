@@ -8,6 +8,11 @@
 #include "res/Object/Cloth.h"
 #include "res/Object/Ship.h"
 
+#if TARGET_PC
+#include "pc/pc_interp.h"
+#include "m_Do/m_Do_ext.h"
+#endif
+
 class daHo_HIO_c : public JORReflexible {
 public:
     daHo_HIO_c() {
@@ -854,6 +859,37 @@ bool daGrid_c::_draw() {
 
     tevStr = l_ship->tevStr;
 
+#if TARGET_PC
+    if (pc_interp_is_presentation_active() && l_ship != NULL && l_ship->mpBodyAnm != NULL && l_ship->mpBodyAnm->getModel() != NULL) {
+        J3DModel* shipModel = l_ship->mpBodyAnm->getModel();
+        Mtx replacedBase;
+        Mtx replacedSailJnt;
+        bool hasBase = pc_interp_lookup_replacement(&shipModel->getBaseTRMtx(), replacedBase);
+        bool hasSail = pc_interp_lookup_replacement(shipModel->getAnmMtx(FN_BODY_JNT_J_FN_SAIL1_e), replacedSailJnt);
+
+        cMtx_copy(hasBase ? replacedBase : shipModel->getBaseTRMtx(), *calc_mtx);
+        if (hasSail) {
+            (*calc_mtx)[0][3] = replacedSailJnt[0][3];
+            (*calc_mtx)[1][3] = replacedSailJnt[1][3];
+            (*calc_mtx)[2][3] = replacedSailJnt[2][3];
+        } else {
+            (*calc_mtx)[0][3] = current.pos.x;
+            (*calc_mtx)[1][3] = current.pos.y;
+            (*calc_mtx)[2][3] = current.pos.z;
+        }
+        cMtx_YrotM(*calc_mtx, l_ship->getSailAngle());
+        MtxScale(1.0f, scale.y, 1.0f, true);
+        MtxScale(l_HIO.field_0x24, l_HIO.field_0x28, l_HIO.field_0x2c, true);
+    } else {
+        MtxTrans(current.pos.x, current.pos.y, current.pos.z, false);
+        cMtx_YrotM(*calc_mtx, current.angle.y);
+        cMtx_XrotM(*calc_mtx, current.angle.x);
+        cMtx_ZrotM(*calc_mtx, current.angle.z);
+        cMtx_YrotM(*calc_mtx, l_ship->getSailAngle());
+        MtxScale(1.0f, scale.y, 1.0f, true);
+        MtxScale(l_HIO.field_0x24, l_HIO.field_0x28, l_HIO.field_0x2c, true);
+    }
+#else
     MtxTrans(current.pos.x, current.pos.y, current.pos.z, false);
     cMtx_YrotM(*calc_mtx, current.angle.y);
     cMtx_XrotM(*calc_mtx, current.angle.x);
@@ -861,6 +897,7 @@ bool daGrid_c::_draw() {
     cMtx_YrotM(*calc_mtx, l_ship->getSailAngle());
     MtxScale(1.0f, scale.y, 1.0f, true);
     MtxScale(l_HIO.field_0x24, l_HIO.field_0x28, l_HIO.field_0x2c, true);
+#endif
     cMtx_concat(j3dSys.getViewMtx(), *calc_mtx, mPacket.getMtx());
     mPacket.setTevStr(&tevStr);
 

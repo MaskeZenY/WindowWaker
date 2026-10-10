@@ -149,7 +149,7 @@ foreach (_m IN LISTS COS_MODULES)
         list(SUBLIST _names ${_begin} 40 _chunk)
         math(EXPR _begin "${_begin} + 40")
         list(JOIN _chunk "|" _alt)
-        set(_rx "/game/src/(${_alt})[.](c|cpp)[.]o$")
+        set(_rx "/game/src/(${_alt})[.](c|cpp)[.](o|obj)$")
         set(_keep "$<FILTER:${_keep},EXCLUDE,${_rx}>")
         list(APPEND _exe_rel "$<FILTER:$<TARGET_OBJECTS:${_m}>,INCLUDE,${_rx}>")
     endwhile ()
@@ -173,6 +173,9 @@ endforeach ()
 add_executable(switchwaker EXCLUDE_FROM_ALL "${_exe_dir}/cos_exe_stub.c")
 add_dependencies(switchwaker ${COS_MODULES})
 target_link_options(switchwaker PRIVATE "@${_exe_rsp}")
+if (WIN32)
+    target_link_options(switchwaker PRIVATE "/force:multiple")
+endif ()
 # The process entry point: aurora::main, whose main calls the game's (aurora_main). A platform
 # build may set COS_EXE_ENTRY to its own entry library first (the Switch build, switch/native).
 if (NOT COS_EXE_ENTRY)
@@ -183,8 +186,8 @@ set_target_properties(switchwaker PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
         # The game is C++: link with the C++ driver, so libc++/libc++abi resolve the C++ runtime.
         LINKER_LANGUAGE CXX
-        # Relink when an object or the object list changes (they are not sources of the target).
-        LINK_DEPENDS "${_exe_rsp};${_exe_objects}")
+        # Relink when the response file changes (objects are already dependencies via add_dependencies)
+        LINK_DEPENDS "${_exe_rsp}")
 
 message(STATUS "cos_native: executable switchwaker from ${_exe_n_rel} REL units after the main.dol "
         "units, then audio")

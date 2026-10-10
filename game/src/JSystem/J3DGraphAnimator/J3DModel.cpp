@@ -11,6 +11,9 @@
 #include "JSystem/J3DGraphBase/J3DSys.h"
 #include "JSystem/JKernel/JKRHeap.h"
 #include "dolphin/os/OSCache.h"
+#if TARGET_PC
+#include "pc/pc_interp.h"
+#endif
 
 Mtx J3DModel::sNoUseDrawMtx;
 Mtx33 J3DModel::sNoUseNrmMtx;
@@ -708,6 +711,18 @@ void J3DModel::calc() {
 
     if (mCalcCallBack != NULL)
         mCalcCallBack(this, 0);
+
+#if TARGET_PC
+    if (pc_interp_should_capture()) {
+        pc_interp_record_final_mtx(mBaseTransformMtx, &mBaseTransformMtx);
+        for (u16 i = 0; i < mModelData->getJointNum(); ++i) {
+            pc_interp_record_final_mtx(getAnmMtx(i), getAnmMtx(i));
+        }
+        for (u16 i = 0; i < mModelData->getWEvlpMtxNum(); ++i) {
+            pc_interp_record_final_mtx(getWeightAnmMtx(i), getWeightAnmMtx(i));
+        }
+    }
+#endif
 }
 
 /* 802EEA2C-802EEB24       .text entry__8J3DModelFv */
@@ -765,31 +780,99 @@ void J3DModel::calcDrawMtx() {
         MtxP viewMtx = j3dSys.getViewMtx();
         for (i = 0; i < mModelData->getDrawFullWgtMtxNum(); i++) {
             u16 drawMtxIdx = mModelData->getDrawMtxIndex(i);
+#if TARGET_PC
+            Mtx replacedAnm;
+            MtxP anm = getAnmMtx(drawMtxIdx);
+            if (pc_interp_is_presentation_active() && pc_interp_lookup_replacement(anm, replacedAnm)) {
+                anm = replacedAnm;
+            }
+            MTXConcat(viewMtx, anm, getDrawMtx(i));
+#else
             MTXConcat(viewMtx, getAnmMtx(drawMtxIdx), getDrawMtx(i));
+#endif
         }
+#if TARGET_PC
+        for (i = 0; i < mModelData->getWEvlpMtxNum(); i++) {
+            Mtx replacedWeight;
+            MtxP w = getWeightAnmMtx(i);
+            if (pc_interp_is_presentation_active() && pc_interp_lookup_replacement(w, replacedWeight)) {
+                w = replacedWeight;
+            }
+            MTXConcat(viewMtx, w, getDrawMtx(mModelData->getDrawFullWgtMtxNum() + i));
+        }
+#else
         if (mModelData->getDrawMtxNum() > mModelData->getDrawFullWgtMtxNum()) {
             J3DPSMtxArrayConcat(viewMtx, getWeightAnmMtx(0), getDrawMtx(mModelData->getDrawFullWgtMtxNum()), mModelData->getWEvlpMtxNum());
         }
+#endif
         break;
     }
     case 1:
         for (i = 0; i < mModelData->getDrawFullWgtMtxNum(); i++) {
+#if TARGET_PC
+            Mtx replacedAnm;
+            MtxP anm = getAnmMtx(mModelData->getDrawMtxIndex(i));
+            if (pc_interp_is_presentation_active() && pc_interp_lookup_replacement(anm, replacedAnm)) {
+                anm = replacedAnm;
+            }
+            MTXCopy(anm, getDrawMtx(i));
+#else
             MTXCopy(getAnmMtx(mModelData->getDrawMtxIndex(i)), getDrawMtx(i));
+#endif
         }
         for (i = 0; i < mModelData->getWEvlpMtxNum(); i++) {
+#if TARGET_PC
+            Mtx replacedWeight;
+            MtxP w = getWeightAnmMtx(i);
+            if (pc_interp_is_presentation_active() && pc_interp_lookup_replacement(w, replacedWeight)) {
+                w = replacedWeight;
+            }
+            MTXCopy(w, getDrawMtx(mModelData->getDrawFullWgtMtxNum() + i));
+#else
             MTXCopy(getWeightAnmMtx(i), getDrawMtx(mModelData->getDrawFullWgtMtxNum() + i));
+#endif
         }
         break;
-    case 2:
+    case 2: {
+#if TARGET_PC
+        Mtx replacedBase;
+        const Mtx* basePtr = &mBaseTransformMtx;
+        if (pc_interp_is_presentation_active() && pc_interp_lookup_replacement(&mBaseTransformMtx, replacedBase)) {
+            basePtr = &replacedBase;
+        }
+        calcViewBaseMtx(j3dSys.getViewMtx(), mBaseScale, *basePtr, mViewBaseMtx);
+#else
         calcViewBaseMtx(j3dSys.getViewMtx(), mBaseScale, mBaseTransformMtx, mViewBaseMtx);
+#endif
         for (i = 0; i < mModelData->getDrawFullWgtMtxNum(); i++) {
             u16 drawMtxIdx = mModelData->getDrawMtxIndex(i);
+#if TARGET_PC
+            Mtx replacedAnm;
+            MtxP anm = getAnmMtx(drawMtxIdx);
+            if (pc_interp_is_presentation_active() && pc_interp_lookup_replacement(anm, replacedAnm)) {
+                anm = replacedAnm;
+            }
+            MTXConcat(mViewBaseMtx, anm, getDrawMtx(i));
+#else
             MTXConcat(mViewBaseMtx, getAnmMtx(drawMtxIdx), getDrawMtx(i));
+#endif
         }
+#if TARGET_PC
+        for (i = 0; i < mModelData->getWEvlpMtxNum(); i++) {
+            Mtx replacedWeight;
+            MtxP w = getWeightAnmMtx(i);
+            if (pc_interp_is_presentation_active() && pc_interp_lookup_replacement(w, replacedWeight)) {
+                w = replacedWeight;
+            }
+            MTXConcat(mViewBaseMtx, w, getDrawMtx(mModelData->getDrawFullWgtMtxNum() + i));
+        }
+#else
         if (mModelData->getDrawMtxNum() > mModelData->getDrawFullWgtMtxNum()) {
             J3DPSMtxArrayConcat(mViewBaseMtx, getWeightAnmMtx(0), getDrawMtx(mModelData->getDrawFullWgtMtxNum()), mModelData->getWEvlpMtxNum());
         }
+#endif
         break;
+    }
     }
 }
 
@@ -799,23 +882,53 @@ void J3DModel::viewCalc() {
     swapNrmMtx();
 
     if (mModelData->checkFlag(J3DMdlDataFlag_NoUseDrawMtx)) {
-        if (getMtxCalcMode() == 2)
+        if (getMtxCalcMode() == 2) {
+#if TARGET_PC
+            Mtx replacedBase;
+            const Mtx* basePtr = &mBaseTransformMtx;
+            if (pc_interp_is_presentation_active() && pc_interp_lookup_replacement(&mBaseTransformMtx, replacedBase)) {
+                basePtr = &replacedBase;
+            }
+            calcViewBaseMtx(j3dSys.getViewMtx(), mBaseScale, *basePtr, (MtxP)&mViewBaseMtx);
+#else
             calcViewBaseMtx(j3dSys.getViewMtx(), mBaseScale, mBaseTransformMtx, (MtxP)&mViewBaseMtx);
+#endif
+        }
 
         prepareShapePackets();
     } else if (isCpuSkinningOn()) {
-        if (getMtxCalcMode() == 2)
+        if (getMtxCalcMode() == 2) {
+#if TARGET_PC
+            Mtx replacedBase;
+            const Mtx* basePtr = &mBaseTransformMtx;
+            if (pc_interp_is_presentation_active() && pc_interp_lookup_replacement(&mBaseTransformMtx, replacedBase)) {
+                basePtr = &replacedBase;
+            }
+            calcViewBaseMtx(j3dSys.getViewMtx(), mBaseScale, *basePtr, (MtxP)&mViewBaseMtx);
+#else
             calcViewBaseMtx(j3dSys.getViewMtx(), mBaseScale, mBaseTransformMtx, (MtxP)&mViewBaseMtx);
+#endif
+        }
+
+
+
+        calcDrawMtx();
+        calcNrmMtx();
+        calcBumpMtx();
+        DCStoreRange(getDrawMtxPtr(), mModelData->getDrawMtxNum() * sizeof(Mtx));
+        DCStoreRange(getNrmMtxPtr(), mModelData->getDrawMtxNum() * sizeof(Mtx33));
 
         prepareShapePackets();
     } else {
         if (checkFlag(J3DMdlFlag_SkinPosCpu)) {
+
             calcDrawMtx();
             calcNrmMtx();
             calcBumpMtx();
             DCStoreRange(getDrawMtxPtr(), mModelData->getDrawMtxNum() * sizeof(Mtx));
             DCStoreRange(getNrmMtxPtr(), mModelData->getDrawMtxNum() * sizeof(Mtx33));
         } else if (checkFlag(J3DMdlFlag_SkinNrmCpu)) {
+
             calcDrawMtx();
             calcBBoard();
             DCStoreRange(getDrawMtxPtr(), mModelData->getDrawMtxNum() * sizeof(Mtx));

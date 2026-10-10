@@ -7,6 +7,7 @@
 #if TARGET_PC
 #include "pc/pc_aspect.h"
 #include "pc/pc_harness.h"
+#include "pc/pc_interp.h"
 #endif
 #include "d/d_camera.h"
 #include "d/d_bg_s_gnd_chk.h"
@@ -8034,6 +8035,10 @@ static int camera_execute(camera_process_class* i_this) {
     store(i_this);
 
     view_setup(i_this);
+
+#if TARGET_PC
+    pc_interp_record_camera(i_this, get_camera_id((camera_class*)i_this));
+#endif
 
     return TRUE;
 }

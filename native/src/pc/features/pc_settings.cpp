@@ -6,6 +6,10 @@
 // file, so a crash or a HOME-kill mid-write leaves the old file); the [dev] section is written
 // back as it was read. On the Mac and Linux, values the process environment fixed at start are
 // locked: they are never written and the menu cannot change them.
+#if defined(_WIN32)
+#include <stdlib.h>
+#define environ _environ
+#endif
 #include "pc/pc_settings.h"
 
 #include "pc_internal.h"
@@ -27,7 +31,9 @@
 #include "cos_switch.h"
 #endif
 
+#ifndef _WIN32
 extern char** environ;
+#endif
 
 namespace {
 
@@ -100,6 +106,10 @@ void computePath() {
     if (exe[0] != '\0') {
         const char* path = realpath(exe, real) != nullptr ? real : exe;
         const char* slash = strrchr(path, '/');
+        const char* bslash = strrchr(path, '\\');
+        if (bslash != nullptr && (slash == nullptr || bslash > slash)) {
+            slash = bslash;
+        }
         if (slash != nullptr) {
             dir.assign(path, (size_t)(slash - path));
         }
@@ -205,7 +215,7 @@ void readFile() {
 
 void makeParents(const std::string& path) {
     for (size_t i = 1; i < path.size(); i++) {
-        if (path[i] == '/') {
+        if (path[i] == '/' || path[i] == '\\') {
             const std::string dir = path.substr(0, i);
             mkdir(dir.c_str(), 0755);
         }
@@ -247,13 +257,9 @@ bool writeFile() {
     }
     const bool ok = fflush(f) == 0;
     fclose(f);
-#ifdef __SWITCH__
-    // Horizon's rename does not replace an existing file (EEXIST): drop the old one first. A kill
-    // between the two calls leaves only the .tmp, and the next save writes it again.
     if (ok) {
         remove(s.path.c_str());
     }
-#endif
     if (!ok || rename(tmp.c_str(), s.path.c_str()) != 0) {
         pc::writef(STDERR_FILENO, "[cos] settings: cannot replace %s: %s\n", s.path.c_str(), strerror(errno));
         return false;
@@ -440,7 +446,11 @@ void pc_settings_load_early(void) {
                        name.c_str(), s.envAtStart[name].c_str(), value.c_str());
             continue;
         }
+#if defined(_WIN32)
+        _putenv((name + "=" + value).c_str());
+#else
         setenv(name.c_str(), value.c_str(), 1);
+#endif
         pc::writef(STDERR_FILENO, "[cos] settings: [dev] %s=%s\n", name.c_str(), value.c_str());
         dev++;
     }

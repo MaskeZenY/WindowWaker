@@ -5,6 +5,8 @@
 #include "dolphin/os/OS.h"
 #include "dolphin/vi.h"
 
+#include "pc/pc_clock.h"
+
 void pc_wait_for_tick(u32 p1, u16 p2) {
     // Step 6.2 (docs/NATIVE_PORT_PHASE4_6.md). The console sleeps here until p1 ticks have passed
     // since the last wait (tick-rate mode, an OSAlarm) or until the VI interrupt has counted p2
@@ -18,7 +20,11 @@ void pc_wait_for_tick(u32 p1, u16 p2) {
     static u32 nextCount = VIGetRetraceCount();
     unsigned long long periodNs;
     u32 retraces;
-    if (p1 != 0) {
+    int targetFps = pc_target_fps();
+    if (targetFps > 0 && targetFps != 30) {
+        periodNs = 1000000000ull / (unsigned long long)targetFps;
+        retraces = 1;
+    } else if (p1 != 0) {
         periodNs = (unsigned long long)p1 * 1000000000ull / OS_TIMER_CLOCK;
         retraces = (u32)((periodNs + PC_RETRACE_PERIOD_NS / 2) / PC_RETRACE_PERIOD_NS);
         if (retraces == 0) {

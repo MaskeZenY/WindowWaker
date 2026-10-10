@@ -26,10 +26,13 @@ JUTGba* JUTGba::sManager;
 
 /* 802CBEB4-802CC03C       .text create__6JUTGbaFv */
 JUTGba* JUTGba::create() {
+    fprintf(stderr, "[cos] JUTGba::create entered\n"); fflush(stderr);
     JUT_ASSERT(61, sManager == NULL);
     sManager = new JUTGba();
+    fprintf(stderr, "[cos] JUTGba::create new done, calling GBAInit\n"); fflush(stderr);
     GBAInit();
-    OSReport(":::GBA: Init()\n");
+    fprintf(stderr, "[cos] JUTGba::create after GBAInit, before OSReport\n"); fflush(stderr);
+    // OSReport(":::GBA: Init()\n");
     for (int i = 0; i < 4; i++) {
         JUTGbaParam* param = sManager->mParams + i;
         char* mem = (char*)param;
@@ -45,7 +48,7 @@ JUTGba* JUTGba::create() {
 
     for (int i = 0; i < 4; i++) {
         JUTGbaParam* param = &sManager->mParams[i];
-        OSReport(":::GBA: Create Thread %d\n", i);
+        fprintf(stderr, "[cos] JUTGba::create starting thread %d\n", i); fflush(stderr);
 #if TARGET_PC
         // Aurora declares the entry point as void* (*)(void*), gbaThreadMain's own type.
         OSCreateThread(&sManager->mThreads[i], &gbaThreadMain, param, sManager->mStacks + i + 1, 0x1000, 8, 0);
@@ -54,6 +57,7 @@ JUTGba* JUTGba::create() {
 #endif
         OSResumeThread(&sManager->mThreads[i]);
     }
+    fprintf(stderr, "[cos] JUTGba::create done!\n"); fflush(stderr);
 
     return sManager;
 }

@@ -21,7 +21,8 @@ public:
     static void dump_long(dRes_info_c*, int);
     static void dump(dRes_info_c*, int);
 
-    void* getRes(s32 i_index) { return mRes[i_index]; }
+    void* getRes(s32 i_index) { return mRes != NULL ? mRes[i_index] : NULL; }
+    void** getResTable() { return mRes; }
     int getResNum() { return mpArchive->countFile(); }
     int getCount() { return mCount; }
     char* getArchiveName() { return mArchiveName; }

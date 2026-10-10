@@ -499,6 +499,7 @@ GXRenderModeObj g_ntscZeldaProg = {
 
 /* 8000C70C-8000CB48       .text mDoMch_Create__Fv */
 bool mDoMch_Create() {
+    fprintf(stderr, "[cos] mDoMch_Create step 1\n"); fflush(stderr);
 #if VERSION == VERSION_DEMO
     if (mDoMain::developmentMode == 0) {
         OSReportDisable();
@@ -509,8 +510,11 @@ bool mDoMch_Create() {
     }
 #endif
 
+    fprintf(stderr, "[cos] mDoMch_Create step 2\n"); fflush(stderr);
     JKRHeap::setDefaultDebugFill(mDoMch::mDebugFill);
+    fprintf(stderr, "[cos] mDoMch_Create step 3\n"); fflush(stderr);
     JFWSystem::setMaxStdHeap(1);
+    fprintf(stderr, "[cos] mDoMch_Create step 4\n"); fflush(stderr);
 
     // Whole host addresses, as in Dusklight (ref/dusklight/src/m_Do/m_Do_machine.cpp, CC0). Aurora's
     // MEM1 lies above 4 GiB, so the test below always holds and the arena loses its top 24 MiB,
@@ -520,6 +524,7 @@ bool mDoMch_Create() {
     if (arenaHi > 0x81800000 && arenaHi - 0x1800000 > arenaLo) {
         OSSetArenaHi((void*)(arenaHi - 0x1800000));
     }
+    fprintf(stderr, "[cos] mDoMch_Create step 5\n"); fflush(stderr);
 
     u32 arenaSize = ((uintptr_t)OSGetArenaHi() - (uintptr_t)OSGetArenaLo()) - 0xF0;
 #if VERSION != VERSION_PAL
@@ -576,8 +581,11 @@ bool mDoMch_Create() {
         mDoMch_render_c::setProgressiveMode();
     }
 #endif
+    fprintf(stderr, "[cos] mDoMch_Create before JFWSystem::init\n"); fflush(stderr);
     JFWSystem::setRenderMode(mDoMch_render_c::getRenderModeObj());
+    fprintf(stderr, "[cos] mDoMch_Create calling JFWSystem::init\n"); fflush(stderr);
     JFWSystem::init();
+    fprintf(stderr, "[cos] mDoMch_Create after JFWSystem::init\n"); fflush(stderr);
 
 #if VERSION > VERSION_DEMO
     if (mDoMain::developmentMode == 0) {

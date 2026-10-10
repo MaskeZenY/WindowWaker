@@ -21,26 +21,31 @@ JKRThreadSwitch_PostCallback JKRThreadSwitch::mUserPostCallback;
 
 /* 802B3D1C-802B3E38       .text __ct__9JKRThreadFUlii */
 JKRThread::JKRThread(u32 stack_size, int message_count, int param_3) : mThreadListLink(this) {
+    fprintf(stderr, "[cos] JKRThread ct start: stack_size=%u\n", stack_size); fflush(stderr);
     mHeap = JKRHeap::findFromRoot(this);
     if (mHeap == NULL) {
         mHeap = JKRGetSystemHeap();
     }
+    fprintf(stderr, "[cos] JKRThread ct mHeap=%p\n", mHeap); fflush(stderr);
 
     mStackSize = stack_size & 0xffffffe0;
     mStackMemory = JKRAllocFromHeap(mHeap, mStackSize, 0x20);
     mThreadRecord = (OSThread*)JKRAllocFromHeap(mHeap, sizeof(OSThread), 0x20);
+    fprintf(stderr, "[cos] JKRThread ct mStackMemory=%p mThreadRecord=%p\n", mStackMemory, mThreadRecord); fflush(stderr);
 
 #if TARGET_PC
     void* stackBase = (void*)((intptr_t)mStackMemory + mStackSize);
 #else
     void* stackBase = (void*)((int)mStackMemory + mStackSize);
 #endif
+    fprintf(stderr, "[cos] JKRThread ct calling OSCreateThread\n"); fflush(stderr);
 #if TARGET_PC
     // Aurora declares the entry point with its real type, void* (*)(void*), which start already has.
     OSCreateThread(mThreadRecord, start, this, stackBase, mStackSize, param_3, 1);
 #else
     OSCreateThread(mThreadRecord, (void*)start, this, stackBase, mStackSize, param_3, 1);
 #endif
+    fprintf(stderr, "[cos] JKRThread ct OSCreateThread done\n"); fflush(stderr);
 
     mMessageCount = message_count;
     mMessages = (OSMessage*)JKRAllocFromHeap(mHeap, mMessageCount * sizeof(OSMessage), 0);
@@ -70,7 +75,12 @@ JKRThread::JKRThread(OSThread* thread, int message_count) : mThreadListLink(this
 #endif
 
     mMessageCount = message_count;
-    mMessages = (OSMessage*)JKRGetSystemHeap()->alloc(mMessageCount * sizeof(OSMessage), 4);
+    if (mMessageCount > 0) {
+        mMessages = (OSMessage*)JKRGetSystemHeap()->alloc(mMessageCount * sizeof(OSMessage), 4);
+    } else {
+        mMessages = NULL;
+    }
+    fprintf(stderr, "[cos] JKRThread ct(OSThread*) thread=%p mMessages=%p\n", thread, mMessages); fflush(stderr);
 
     OSInitMessageQueue(&mMessageQueue, mMessages, mMessageCount);
 #if TARGET_PC
@@ -100,7 +110,9 @@ JKRThread::~JKRThread() {
         JKRFreeToHeap(mHeap, mStackMemory);
         JKRFreeToHeap(mHeap, mThreadRecord);
     }
-    JKRFree(mMessages);
+    if (mMessages) {
+        JKRFree(mMessages);
+    }
 }
 
 /* 802B3FD4-802B4000       .text start__9JKRThreadFPv */

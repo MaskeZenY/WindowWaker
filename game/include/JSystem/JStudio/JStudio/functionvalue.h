@@ -343,7 +343,7 @@ public:
             return r1.pf_ == r2.pf_;
         }
 
-        f32 operator*() {
+        f32 operator*() const {
 #ifdef DEBUG
             JUT_ASSERT(947, pf_!=0);
 #endif
@@ -451,7 +451,7 @@ public:
             return r1.pf_ == r2.pf_;
         }
 
-        f32 operator*() {
+        f32 operator*() const {
 #ifdef DEBUG
             JUT_ASSERT(1098, pf_!=0);
 #endif

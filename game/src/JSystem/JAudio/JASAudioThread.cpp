@@ -59,21 +59,28 @@ void JASystem::TAudioThread::syncAudio() {
 
 /* 80288F88-80289130       .text audioproc__Q28JASystem12TAudioThreadFPv */
 void* JASystem::TAudioThread::audioproc(void*) {
+    fprintf(stderr, "[cos] audioproc entered!\n"); fflush(stderr);
     JKRThread thread(&sAudioThread, 0);
+    fprintf(stderr, "[cos] audioproc after JKRThread\n"); fflush(stderr);
     OSInitFastCast();
     OSInitMessageQueue(&sAudioprocMQ, saAudioMsgBuf, 16);
     sAudioprocMQInit = 1;
+    fprintf(stderr, "[cos] audioproc calling Kernel::init\n"); fflush(stderr);
     Kernel::init();
+    fprintf(stderr, "[cos] audioproc calling TDSP_DACBuffer::init\n"); fflush(stderr);
     TDSP_DACBuffer::init();
     if (!sbIsDSPBoot) {
+        fprintf(stderr, "[cos] audioproc calling DspBoot\n"); fflush(stderr);
         DspBoot(syncDSP);
         sbIsDSPBoot = 1;
     }
+    fprintf(stderr, "[cos] audioproc calling Driver::init\n"); fflush(stderr);
     Driver::init();
     AISetDSPSampleRate(Kernel::getAiSetting());
     AIRegisterDMACallback(syncAudio);
     AIStartDMA();
 #if TARGET_PC
+    fprintf(stderr, "[cos] audioproc notifying sAudioStartedMQ\n"); fflush(stderr);
     OSSendMessage(&sAudioStartedMQ, NULL, OS_MESSAGE_BLOCK);
 #endif
     while (true) {

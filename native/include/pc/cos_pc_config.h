@@ -20,6 +20,22 @@
 #endif
 
 #include <stdint.h>
+#include <sys/types.h>
+
+
+#if defined(_WIN32)
+#include <sys/stat.h>
+typedef int64_t off_t;
+#ifndef fstat
+#define fstat _fstat
+#endif
+#ifndef S_ISREG
+#define S_ISREG(m) (((m) & _S_IFMT) == _S_IFREG)
+#endif
+#ifndef DECL_WEAK
+#define DECL_WEAK
+#endif
+#endif
 
 #define COS_PC_INTRINSIC static inline
 
@@ -78,6 +94,13 @@ COS_PC_INTRINSIC double __frsqrte(double value) {
  * MSL_Common/Include/math.h, including the unparenthesized argument, but with MSL's float M_PI
  * spelled out: the host's M_PI is a double and would change the arithmetic.
  */
+#ifndef _USE_MATH_DEFINES
+#define _USE_MATH_DEFINES
+#endif
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
 #define COS_MSL_M_PI 3.14159265358979323846f
 #ifndef DEG_TO_RAD
 #define DEG_TO_RAD(degrees) (degrees * (COS_MSL_M_PI / 180.0f))
@@ -162,6 +185,19 @@ struct __tag_va_List {
  * native/src/pc/runtime/pc_assets.cpp.
  */
 bool cos_asset_fill(void* array, unsigned int size, unsigned int id);
+#endif // __cplusplus
+
+/* ---- target FPS and delta time ----------------------------------------------------------- */
+#ifdef __cplusplus
+extern "C" {
+#endif
+int pc_target_fps(void);
+float pc_time_step(void);
+void pc_target_fps_set(int fps);
+#include "pc/pc_clock.h"
+#ifdef __cplusplus
+}
 #endif
 
 #endif /* COS_PC_CONFIG_H */
+

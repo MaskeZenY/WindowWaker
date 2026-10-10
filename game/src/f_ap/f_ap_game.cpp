@@ -74,9 +74,26 @@ void fapGm_After() {
     fopCamM_Management();
 }
 
+#if TARGET_PC
+#include "pc/pc_interp.h"
+
+static void fapGm_Before() {
+    pc_interp_begin_record();
+}
+
+static void fapGm_AfterRecord() {
+    pc_interp_end_record();
+    fapGm_After();
+}
+#endif
+
 /* 800231E4-80023218       .text fapGm_Execute__Fv */
 void fapGm_Execute() {
+#if TARGET_PC
+    fpcM_Management(fapGm_Before, fapGm_AfterRecord);
+#else
     fpcM_Management(0, fapGm_After);
+#endif
     cCt_Counter(0);
 }
 

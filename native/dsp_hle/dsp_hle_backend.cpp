@@ -22,7 +22,13 @@
 #include <cstring>
 #include <string>
 #include <chrono>
+#ifdef _WIN32
+#define NOMINMAX
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#else
 #include <pthread.h>
+#endif
 
 #include "Common/CommonTypes.h"
 #include "Common/Swap.h"
@@ -276,7 +282,11 @@ void RecordMail(std::uint32_t mail, bool toDsp) {
     pthread_getname_np(pthread_self(), r.thread, sizeof(r.thread));
 #endif
     if (r.thread[0] == '\0') {
+#if defined(_WIN32)
+        std::snprintf(r.thread, sizeof(r.thread), "%lu", static_cast<unsigned long>(GetCurrentThreadId()));
+#else
         std::snprintf(r.thread, sizeof(r.thread), "%p", reinterpret_cast<void*>(pthread_self()));
+#endif
     }
     g_mailNext = (g_mailNext + 1) % kMailRing;
     if (g_mailCount < kMailRing) {

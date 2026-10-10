@@ -106,15 +106,18 @@ void JASystem::TDSPChannel::stop() {
 void JASystem::TDSPChannel::initAll() {
     static int first = 1;
     if (first == 0) {
-        OSReport("---- DSPChannel::initAll : already initialized\n");
+        fprintf(stderr, "[cos] ---- DSPChannel::initAll : already initialized\n"); fflush(stderr);
         return;
     }
+    fprintf(stderr, "[cos] TDSPChannel::initAll allocating DSPCH from JASDram=%p\n", JASDram); fflush(stderr);
     DSPCH = new (JASDram, 0x20) TDSPChannel[64];
     JUT_ASSERT(204, DSPCH);
-    OSReport("----- JASDSPChannel size : %d\n", 0x14);
+    fprintf(stderr, "[cos] DSPCH allocated at %p\n", DSPCH); fflush(stderr);
+    fprintf(stderr, "[cos] ----- JASDSPChannel size : %d\n", 0x14); fflush(stderr);
     for (u8 i = 0; i < 64; i++) {
         DSPCH[i].init(i);
     }
+    fprintf(stderr, "[cos] TDSPChannel::initAll finished!\n"); fflush(stderr);
     first = 0;
 }
 

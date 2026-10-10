@@ -33,6 +33,7 @@
 #include <dolphin/dvd.h>
 #include <dolphin/gx/GXAurora.h>
 #include <dolphin/os.h>
+#include <dolphin/vi.h>
 
 #include <cerrno>
 #include <climits>
@@ -86,6 +87,12 @@ void makeUserPaths(const char* argv0) {
     char real[PATH_MAX];
     const char* path = realpath(exe, real) != nullptr ? real : exe;
     const char* slash = strrchr(path, '/');
+#if defined(_WIN32)
+    const char* backslash = strrchr(path, '\\');
+    if (backslash != nullptr && (slash == nullptr || backslash > slash)) {
+        slash = backslash;
+    }
+#endif
     int dirLen = slash != nullptr ? (int)(slash - path) : 0;
     if (slash == nullptr) {
         path = ".";
@@ -228,9 +235,18 @@ void pc_aurora_init(int argc, char* argv[]) {
     config.vsync = !gConfig.uncapped;
     config.windowPosX = -1;
     config.windowPosY = -1;
-    // 960x720, or as wide as COS_ASPECT at that height (1280x720 at 16:9, 1152x720 at 16:10).
-    config.windowWidth = (int)(480 * 3 / 2 * pc_aspect_ratio() + 0.5f);
-    config.windowHeight = 480 * 3 / 2;
+    // Window dimensions based on COS_FB_SCALE (2K = 3.0 -> 2560x1440, 1080p = 2.25 -> 1920x1080) and aspect ratio.
+    float bootScale = 1.5f;
+    if (const char* fbEnv = getenv("COS_FB_SCALE"); fbEnv != nullptr && *fbEnv != '\0') {
+        float s = (float)atof(fbEnv);
+        if (s > 0.0f) {
+            bootScale = s;
+        }
+    }
+    int baseHeight = (int)(480.0f * bootScale + 0.5f);
+    if (baseHeight < 480) baseHeight = 480;
+    config.windowWidth = (int)(baseHeight * pc_aspect_ratio() + 0.5f);
+    config.windowHeight = baseHeight;
     config.logLevel = LOG_INFO;
     config.allowTextureDumps = false;
     config.mem1Size = kMem1Size;
@@ -249,6 +265,9 @@ void pc_aurora_init(int argc, char* argv[]) {
         }
     });
 #endif
+    if (const char* fsEnv = getenv("COS_FULLSCREEN"); fsEnv != nullptr && strcmp(fsEnv, "1") == 0) {
+        VISetWindowFullscreen(true);
+    }
     applyFrameBufferScale(info.windowSize);
     if (pc_aspect_wide()) {
         // The game draws an anamorphic picture into the 640x480 EFB (pc_aspect.h): Aurora presents

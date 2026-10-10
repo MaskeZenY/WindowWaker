@@ -50,6 +50,13 @@ dRes_info_c::~dRes_info_c() {
         mpArchive->unmount();
         mpArchive = NULL;
     }
+    mCount = 0;
+    mpDMCommand = NULL;
+    mpArchive = NULL;
+    mpParentHeap = NULL;
+    mDataHeap = NULL;
+    mRes = NULL;
+    mArchiveName[0] = '\0';
 }
 
 /* 8006D8F4-8006D990       .text set__11dRes_info_cFPCcPCcUcP7JKRHeap */
@@ -63,6 +70,11 @@ int dRes_info_c::set(char const* pArcName, char const* pArcPath, u8 direction, J
         return false;
 
     strncpy(mArchiveName, pArcName, 14);
+    mArchiveName[13] = '\0';
+    mpArchive = NULL;
+    mpParentHeap = NULL;
+    mDataHeap = NULL;
+    mRes = NULL;
     return true;
 }
 
@@ -382,10 +394,9 @@ next:
 
 /* 8006E8FC-8006EBD0       .text setRes__11dRes_info_cFv */
 int dRes_info_c::setRes() {
-    if (mpArchive == NULL) {
-        if (mpDMCommand == NULL) {
-            return -1;
-        }
+    fprintf(stderr, "[cos] setRes called for '%s': mpArchive=%p mpDMCommand=%p (isDone=%d)\n",
+            mArchiveName, mpArchive, mpDMCommand, mpDMCommand ? (int)mpDMCommand->mIsDone : -1); fflush(stderr);
+    if (mpDMCommand != NULL) {
         if ((int)mpDMCommand->mIsDone == 0) {
             return 1;
         }
@@ -467,6 +478,9 @@ int dRes_info_c::setRes() {
         DCStoreRangeNoSync(heapStartAddr, heapSize);
 #endif
     }
+
+    if (mpArchive == NULL)
+        return -1;
 
     return 0;
 }
@@ -581,10 +595,14 @@ int dRes_control_c::syncRes(char const* pArcName, dRes_info_c* pInfo, int infoNu
     dRes_info_c* resInfo = getResInfo(pArcName, pInfo, infoNum);
 
     if (resInfo == NULL) {
+        fprintf(stderr, "[cos] syncRes: %s not registered!\n", pArcName ? pArcName : "null"); fflush(stderr);
         OSReport_Error("<%s.arc> syncRes: リソース未登録!!\n", pArcName);
         return 1;
     } else {
-        return resInfo->setRes();
+        int r = resInfo->setRes();
+        fprintf(stderr, "[cos] syncRes: %s setRes returned %d (mpArchive=%p mRes=%p)\n",
+                pArcName ? pArcName : "null", r, resInfo->getArchive(), resInfo->getResTable()); fflush(stderr);
+        return r;
     }
 }
 
@@ -634,9 +652,16 @@ dRes_info_c* dRes_control_c::getResInfoLoaded(char const* pArcName, dRes_info_c*
     if (resInfo == NULL) {
         OSReport_Error("<%s.arc> getRes: res nothing !!\n", pArcName);
         resInfo = NULL;
-    } else if (resInfo->getArchive() == NULL) {
-        OSReport_Error("<%s.arc> getRes: res during reading !!\n", pArcName);
-        resInfo = NULL;
+    } else if (resInfo->getArchive() == NULL || resInfo->getDMCommand() != NULL) {
+        if (resInfo->getDMCommand() != NULL) {
+            fprintf(stderr, "[cos] getResInfoLoaded: %s has active DMCommand, completing mount synchronously...\n", pArcName ? pArcName : "null"); fflush(stderr);
+            while (resInfo->setRes() > 0) {
+            }
+        }
+        if (resInfo->getArchive() == NULL) {
+            OSReport_Error("<%s.arc> getRes: res during reading !!\n", pArcName);
+            resInfo = NULL;
+        }
     }
     return resInfo;
 }
@@ -665,13 +690,36 @@ void* dRes_control_c::getRes(char const* pArcName, char const* resName, dRes_inf
     if (resInfo == NULL)
         return resInfo;
 
-    s32 fileNum = resInfo->getResNum();
-    for (s32 i = 0; i < fileNum; i++) {
-        if (resInfo->getRes(i) != NULL) {
-            JKRArchive::SDirEntry dirEntry;
-            resInfo->getArchive()->getDirEntry(&dirEntry, i);
-            if (strcmp(resName, dirEntry.name) == 0)
-                return resInfo->getRes(i);
+    fprintf(stderr, "[cos] getRes: pArcName=%s resName=%s resInfo=%p mRes=%p\n",
+            pArcName ? pArcName : "null", resName ? resName : "null", resInfo, resInfo ? resInfo->getResTable() : NULL); fflush(stderr);
+
+    if (resInfo->getResTable() != NULL) {
+        s32 fileNum = resInfo->getResNum();
+        for (s32 i = 0; i < fileNum; i++) {
+            if (resInfo->getRes(i) != NULL) {
+                JKRArchive::SDirEntry dirEntry;
+                resInfo->getArchive()->getDirEntry(&dirEntry, i);
+                if (strcmp(resName, dirEntry.name) == 0)
+                    return resInfo->getRes(i);
+            }
+        }
+    }
+
+    if (resInfo->getArchive() != NULL) {
+        void* res = resInfo->getArchive()->getResource(0, resName);
+        if (!res) {
+            res = resInfo->getArchive()->getResource(resName);
+        }
+        if (!res) {
+            static const u32 searchTypes[] = { 'STB ', 'DAT ', 'DZB ', 'DZR ', 'DZS ', 'MSG ', 'TEX ' };
+            for (size_t ti = 0; ti < sizeof(searchTypes)/sizeof(searchTypes[0]); ti++) {
+                res = JKRGetResource(searchTypes[ti], resName, resInfo->getArchive());
+                if (res) break;
+            }
+        }
+        if (res) {
+            fprintf(stderr, "[cos] getRes fallback found '%s' in %s -> %p\n", resName, pArcName, res); fflush(stderr);
+            return res;
         }
     }
 

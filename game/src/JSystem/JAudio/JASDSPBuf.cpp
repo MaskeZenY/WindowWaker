@@ -43,7 +43,8 @@ void JASystem::TDSP_DACBuffer::init() {
             }
             DCStoreRange(dsp_buf[i], frameSamples * 4);
         }
-        OSReport("DSP_DAC buffer size : %d\n", frameSamples * 2);
+        fprintf(stderr, "[cos] TDSP_DACBuffer::init dsp_buf allocated: %p\n", dsp_buf); fflush(stderr);
+        fprintf(stderr, "[cos] DSP_DAC buffer size : %d\n", frameSamples * 2); fflush(stderr);
         dspStatus = 0;
         isInit = 1;
     }

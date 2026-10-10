@@ -55,7 +55,11 @@ static void* pc_heapless_alloc(size_t size, int alignment) {
     // aligned_alloc needs a power-of-two alignment and a size that is a multiple of it.
     JUT_ASSERT(0, (align & (align - 1)) == 0);
     size = (size + align - 1) & ~(align - 1);
+#if defined(_WIN32)
+    return malloc(size != 0 ? size : align);
+#else
     return aligned_alloc(align, size != 0 ? size : align);
+#endif
 }
 
 static void* pc_new(size_t size, int alignment, JKRHeap* heap) {

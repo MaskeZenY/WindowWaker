@@ -152,8 +152,10 @@ void mDoAud_Create() {
         }
     }
     if (l_affCommand->sync() && l_arcCommand->sync()) {
+        fprintf(stderr, "[cos] mDoAud_Create both synced! Setting paramInitDataPointer & archivePointer\n"); fflush(stderr);
         JAIGlobalParameter::setParamInitDataPointer(l_affCommand->getMemAddress());
         JAInter::SequenceMgr::setArchivePointer(l_arcCommand->getArchive());
+        fprintf(stderr, "[cos] mDoAud_Create calling mDoAud_setupStreamBuffer\n"); fflush(stderr);
         mDoAud_setupStreamBuffer();
 #if VERSION == VERSION_DEMO
         g_mDoAud_audioHeap = JKRSolidHeap::create(0x166800, JKRHeap::getCurrentHeap(), false);
@@ -163,29 +165,31 @@ void mDoAud_Create() {
         }
 #else
         if (g_mDoAud_audioHeap) {
-#if VERSION == VERSION_JPN
-            JUTReportConsole("mDoAud_Create g_mDoAud_zelAudio.init before\n");
-#endif
+            fprintf(stderr, "[cos] mDoAud_Create initializing zelAudio with audioHeap=%p\n", g_mDoAud_audioHeap); fflush(stderr);
             JKRSetCurrentHeap(NULL);
             g_mDoAud_zelAudio.init(g_mDoAud_audioHeap, 0x00a00000);
+            fprintf(stderr, "[cos] mDoAud_Create zelAudio.init done\n"); fflush(stderr);
             JKRSetCurrentHeap(zeldaHeap);
-#if VERSION == VERSION_JPN
-            JUTReportConsole("mDoAud_Create g_mDoAud_zelAudio.init after\n");
-#endif
             g_mDoAud_audioHeap->adjustSize();
         }
 #endif
         else {
+            fprintf(stderr, "[cos] mDoAud_Create audioHeap is NULL!\n"); fflush(stderr);
             OSReport_Error("ヒープ確保失敗につきオーディオ初期化できません\n");
         }
+        fprintf(stderr, "[cos] mDoAud_Create setting event bit\n"); fflush(stderr);
         g_mDoAud_zelAudio.setEventBit(dComIfGs_getPEventBit());
+        fprintf(stderr, "[cos] mDoAud_Create calling zelAudio.reset()\n"); fflush(stderr);
         g_mDoAud_zelAudio.reset();
+        fprintf(stderr, "[cos] mDoAud_Create setOutputMode\n"); fflush(stderr);
         JAIZelBasic::zel_basic->setOutputMode(OSGetSoundMode());
+        fprintf(stderr, "[cos] mDoAud_Create freeing aff and arc commands\n"); fflush(stderr);
         JKRHeap::free(l_affCommand->getMemAddress(), NULL);
         delete l_affCommand;
         delete l_arcCommand;
         mDoAud_zelAudio_c::onInitFlag();
         mDoDvdThd::SyncWidthSound = 1;
+        fprintf(stderr, "[cos] mDoAud_Create COMPLETE!\n"); fflush(stderr);
     }
 }
 

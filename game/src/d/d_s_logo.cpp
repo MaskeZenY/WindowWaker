@@ -949,26 +949,34 @@ cPhs_State phase_2(dScnLogo_c* i_this) {
     JUT_ASSERT(VERSION_SELECT(1354, 1426, 1751, 1791), l_DmcMountCommand != NULL);
 #endif
 
+    fprintf(stderr, "[cos] logo phase_2 before loadStaticWaves\n"); fflush(stderr);
     mDoAud_loadStaticWaves();
+    fprintf(stderr, "[cos] logo phase_2 before setTickRate\n"); fflush(stderr);
     mDoGph_gInf_c::setTickRate((OS_BUS_CLOCK / 4) / 60);
+    fprintf(stderr, "[cos] logo phase_2 before waitBlanking\n"); fflush(stderr);
     mDoGph_gInf_c::waitBlanking(0);
+    fprintf(stderr, "[cos] logo phase_2 before startFadeIn\n"); fflush(stderr);
     mDoGph_gInf_c::startFadeIn(30);
     i_this->mTimer = 90;
 
 #if VERSION > VERSION_JPN
+    fprintf(stderr, "[cos] logo phase_2 before offReset\n"); fflush(stderr);
     mDoRst::offReset();
     mDoRst::offResetPrepare();
 #endif
 
 #if VERSION > VERSION_DEMO
+    fprintf(stderr, "[cos] logo phase_2 before setResetCallback\n"); fflush(stderr);
     JUTGamePad::clearResetOccurred();
     JUTGamePad::setResetCallback(mDoRst_resetCallBack, NULL);
 #endif
 #if TARGET_PC
     // Run harness: milestone M5 logo-scene; resets the debug stage boot's request
     // (native/src/pc/game_hooks/pc_logo_hooks.cpp).
+    fprintf(stderr, "[cos] logo phase_2 before pc_logo_scene_created_hook\n"); fflush(stderr);
     pc_logo_scene_created_hook();
 #endif
+    fprintf(stderr, "[cos] logo phase_2 COMPLEATE!\n"); fflush(stderr);
 
     return cPhs_COMPLEATE_e;
 }

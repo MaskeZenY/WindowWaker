@@ -1108,24 +1108,41 @@ BOOL daPy_lk_c::checkSightLine(f32 param_1, cXyz* param_2) {
     return temp_r3;
 }
 
+#if TARGET_PC
+#include "pc/pc_interp.h"
+static inline void setModelAnmMtxInterp(J3DModel* targetModel, int targetIdx, J3DModel* srcModel, int srcIdx) {
+    MtxP srcMtx = srcModel->getAnmMtx(srcIdx);
+    Mtx replaced;
+    if (pc_interp_is_presentation_active() && pc_interp_lookup_replacement(srcMtx, replaced)) {
+        targetModel->setAnmMtx(targetIdx, replaced);
+    } else {
+        targetModel->setAnmMtx(targetIdx, srcMtx);
+    }
+}
+#else
+static inline void setModelAnmMtxInterp(J3DModel* targetModel, int targetIdx, J3DModel* srcModel, int srcIdx) {
+    targetModel->setAnmMtx(targetIdx, srcModel->getAnmMtx(srcIdx));
+}
+#endif
+
 /* 80105814-80105910       .text setBootsModel__9daPy_lk_cFPP8J3DModel */
 void daPy_lk_c::setBootsModel(J3DModel** pBootModels) {
     u16 bootsJointIdx;
     if (checkEquipHeavyBoots()) {
-        pBootModels[0]->setAnmMtx(HBOOTS_JNT_CL_HBOOTSA_e, mpCLModel->getAnmMtx(CL_JNT_RLEGB_JNT_e));
-        pBootModels[1]->setAnmMtx(HBOOTS_JNT_CL_HBOOTSA_e, mpCLModel->getAnmMtx(CL_JNT_LLEGB_JNT_e));
+        setModelAnmMtxInterp(pBootModels[0], HBOOTS_JNT_CL_HBOOTSA_e, mpCLModel, CL_JNT_RLEGB_JNT_e);
+        setModelAnmMtxInterp(pBootModels[1], HBOOTS_JNT_CL_HBOOTSA_e, mpCLModel, CL_JNT_LLEGB_JNT_e);
         bootsJointIdx = HBOOTS_JNT_CL_HBOOTSB_e;
     } else {
         bootsJointIdx = HBOOTS_JNT_CL_HBOOTSA_e;
     }
     
     J3DModel* bootModel = pBootModels[0];
-    bootModel->setAnmMtx(bootsJointIdx, mpCLModel->getAnmMtx(CL_JNT_RTOE_JNT_e));
-    bootModel->setAnmMtx(bootsJointIdx+1, mpCLModel->getAnmMtx(CL_JNT_RFOOT_JNT_e));
+    setModelAnmMtxInterp(bootModel, bootsJointIdx, mpCLModel, CL_JNT_RTOE_JNT_e);
+    setModelAnmMtxInterp(bootModel, bootsJointIdx+1, mpCLModel, CL_JNT_RFOOT_JNT_e);
     
     bootModel = pBootModels[1];
-    bootModel->setAnmMtx(bootsJointIdx, mpCLModel->getAnmMtx(CL_JNT_LTOE_JNT_e));
-    bootModel->setAnmMtx(bootsJointIdx+1, mpCLModel->getAnmMtx(CL_JNT_LFOOT_JNT_e));
+    setModelAnmMtxInterp(bootModel, bootsJointIdx, mpCLModel, CL_JNT_LTOE_JNT_e);
+    setModelAnmMtxInterp(bootModel, bootsJointIdx+1, mpCLModel, CL_JNT_LFOOT_JNT_e);
 }
 
 /* 80105910-80106660       .text setItemModel__9daPy_lk_cFv */
@@ -1381,8 +1398,8 @@ s32 daPy_lk_c::setItemModel() {
         mDoAud_setLinkBootsType(0);
     }
     if (checkPowerGloveEquip()) {
-        mpPringModel->setAnmMtx(PRING_JNT_PRINGL_e, mpCLModel->getAnmMtx(CL_JNT_LARMB_JNT_e));
-        mpPringModel->setAnmMtx(PRING_JNT_PRINGR_e, mpCLModel->getAnmMtx(CL_JNT_RARMB_JNT_e));
+        setModelAnmMtxInterp(mpPringModel, PRING_JNT_PRINGL_e, mpCLModel, CL_JNT_LARMB_JNT_e);
+        setModelAnmMtxInterp(mpPringModel, PRING_JNT_PRINGR_e, mpCLModel, CL_JNT_RARMB_JNT_e);
     }
     return false;
 }
@@ -1503,7 +1520,7 @@ s32 daPy_lk_c::setDrawHandModel() {
     } else {
         mpLhandShape =
             mpHandsModel->getModelData()->getJointNodePointer(lHand_JntNo)->getMesh()->getShape();
-        mpHandsModel->setAnmMtx(lHand_JntNo, mpCLModel->getAnmMtx(CL_JNT_CL_LHANDA_e));
+        setModelAnmMtxInterp(mpHandsModel, lHand_JntNo, mpCLModel, CL_JNT_CL_LHANDA_e);
     }
     mpLhandShape->show();
     if (rHand_JntNo == HANDS_JNT_WORLD_ROOT_e) {
@@ -1511,7 +1528,7 @@ s32 daPy_lk_c::setDrawHandModel() {
     } else {
         mpRhandShape =
             mpHandsModel->getModelData()->getJointNodePointer(rHand_JntNo)->getMesh()->getShape();
-        mpHandsModel->setAnmMtx(rHand_JntNo, mpCLModel->getAnmMtx(CL_JNT_CL_RHANDA_e));
+        setModelAnmMtxInterp(mpHandsModel, rHand_JntNo, mpCLModel, CL_JNT_CL_RHANDA_e);
     }
     mpRhandShape->show();
     return true;

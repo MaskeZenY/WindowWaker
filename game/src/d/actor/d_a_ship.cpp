@@ -22,6 +22,9 @@
 #include "d/actor/d_a_bomb.h"
 #include "d/actor/d_a_grid.h"
 #include "res/Object/Ship.h"
+#if TARGET_PC
+#include "pc/pc_interp.h"
+#endif
 
 static char l_arcName[] = "Ship";
 static Vec l_cannon_top = {85.0f, 0.0f, 10.0f};
@@ -256,16 +259,26 @@ BOOL daShip_c::draw() {
 
     dComIfGd_setListP1();
     
+    cXyz shipPos = current.pos;
+#if TARGET_PC
+    Mtx replacedRoot;
+    if (pc_interp_is_presentation_active() && pc_interp_lookup_replacement(bodyModel->getAnmMtx(0), replacedRoot)) {
+        shipPos.set(replacedRoot[0][3], replacedRoot[1][3], replacedRoot[2][3]);
+    }
+#endif
+
     if (m02A0 && m02A4) {
+#if !TARGET_PC
         j3dSys.onFlag(J3DSysFlag_SkinPosCpu);
         j3dSys.onFlag(J3DSysFlag_SkinNrmCpu);
+#endif
         
-        cXyz local_5c(current.pos.x, current.pos.y + m03D8 + 5.0f, current.pos.z);
+        cXyz local_5c(shipPos.x, shipPos.y + m03D8 + 5.0f, shipPos.z);
         
         cXyz local_68(
-            current.pos.x + cM_scos(m037C) * 10000.0f * cM_ssin(shape_angle.y),
-            current.pos.y + m03D8 + 5.0f - cM_ssin(m037C) * 10000.0f,
-            current.pos.z + cM_scos(m037C) * 10000.0f * cM_scos(shape_angle.y)
+            shipPos.x + cM_scos(m037C) * 10000.0f * cM_ssin(shape_angle.y),
+            shipPos.y + m03D8 + 5.0f - cM_ssin(m037C) * 10000.0f,
+            shipPos.z + cM_scos(m037C) * 10000.0f * cM_scos(shape_angle.y)
         );
         Mtx MStack_50;
         cMtx_lookAt(MStack_50, &local_5c, &local_68, m037E);
@@ -315,8 +328,8 @@ BOOL daShip_c::draw() {
 
     dComIfGd_setList();
 
-    mShadowId = dComIfGd_setShadow(mShadowId, 0, bodyModel, &current.pos, 1500.0f, 250.0f,
-                                   current.pos.y, mAcch.GetGroundH(), mAcch.m_gnd, &tevStr);
+    mShadowId = dComIfGd_setShadow(mShadowId, 0, bodyModel, &shipPos, 1500.0f, 250.0f,
+                                   shipPos.y, mAcch.GetGroundH(), mAcch.m_gnd, &tevStr);
 
     if (mShadowId != 0) {
         dComIfGd_addRealShadow(mShadowId, headModel);
@@ -4422,6 +4435,7 @@ BOOL daShip_c::createHeap() {
     );
 
     if (mpBodyAnm && mpBodyAnm->getModel()) {
+#if !TARGET_PC
         J3DModel* pModel = mpBodyAnm->getModel();
         J3DSkinDeform* skinDeform = new J3DSkinDeform();
         if (skinDeform == NULL) {
@@ -4431,6 +4445,7 @@ BOOL daShip_c::createHeap() {
         if (pModel->setSkinDeform(skinDeform, 1) != J3DErrType_Success) {
             return FALSE;
         }
+#endif
     }
     else {
         return FALSE;

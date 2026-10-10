@@ -39,6 +39,7 @@ namespace {
 int sShadowOffscreen = -1;
 int sDof = -1;
 int sMistLowres = -1;
+int sAniso = -1;
 
 bool envIs(const char* name, const char* value) {
     const char* v = getenv(name);
@@ -432,6 +433,22 @@ void pc_dof_set(int enabled) {
     pc_dof_enabled();
     sDof = enabled ? 1 : 0;
     pc::writef(STDERR_FILENO, "[cos] depth of field: %s (options menu)\n", sDof ? "on" : "off");
+}
+
+int pc_aniso_enabled(void) {
+    if (sAniso < 0) {
+        sAniso = envIs("COS_ANISO", "0") ? 0 : 1;
+        if (sAniso) {
+            pc::writef(STDERR_FILENO, "[cos] COS_ANISO=1: 16x anisotropic & high quality texture filtering enabled\n");
+        }
+    }
+    return sAniso;
+}
+
+void pc_aniso_set(int enabled) {
+    pc_aniso_enabled();
+    sAniso = enabled ? 1 : 0;
+    pc::writef(STDERR_FILENO, "[cos] anisotropic filtering: %s (options menu)\n", sAniso ? "16x" : "off");
 }
 
 void pc_mist_lowres_set(int div) {

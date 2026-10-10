@@ -193,7 +193,7 @@ void writeShot(unsigned int frame, const std::vector<uint8_t>& rgb, uint32_t wid
 
 bool writePng(const char* path, unsigned int frame, const std::vector<uint8_t>& rgb, uint32_t width, uint32_t height) {
     const std::string png = encodePng(rgb, width, height);
-    int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644);
+    int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC | O_BINARY, 0644);
     if (fd < 0) {
         writef(STDERR_FILENO, "[cos] shot: frame %u: cannot create %s (errno %d)\n", frame, path, errno);
         return false;

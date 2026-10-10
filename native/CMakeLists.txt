@@ -44,6 +44,17 @@ if (APPLE AND NOT CMAKE_OSX_ARCHITECTURES)
 endif ()
 
 project(cos_native LANGUAGES C CXX)
+set(CMAKE_MSVC_MANIFEST_OPTION "")
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /MANIFEST:NO")
+
+if (WIN32)
+    file(GLOB _WIN_SDK_DIRS "C:/Program Files (x86)/Windows Kits/10/Include/10.*")
+    if (_WIN_SDK_DIRS)
+        list(REVERSE _WIN_SDK_DIRS)
+        list(GET _WIN_SDK_DIRS 0 _LATEST_WIN_SDK)
+        set(CMAKE_RC_FLAGS "${CMAKE_RC_FLAGS} -I\"${_LATEST_WIN_SDK}/um\" -I\"${_LATEST_WIN_SDK}/shared\"" CACHE STRING "RC flags" FORCE)
+    endif ()
+endif ()
 
 if (COS_PERF_BUILD)
     # Before any target (Aurora and its dependencies included), so all of them get it.

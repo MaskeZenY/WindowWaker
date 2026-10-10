@@ -58,9 +58,14 @@ else ()
     set(_cos_dsp_arch _M_ARM_64=1)
 endif ()
 target_compile_definitions(cos_dsp_hle PRIVATE
-        _ARCH_64=1 ${_cos_dsp_arch} _DEFAULT_SOURCE __STDC_CONSTANT_MACROS __STDC_LIMIT_MACROS)
+        _ARCH_64=1 ${_cos_dsp_arch} _DEFAULT_SOURCE __STDC_CONSTANT_MACROS __STDC_LIMIT_MACROS
+        NOMINMAX=1 WIN32_LEAN_AND_MEAN=1)
 target_compile_features(cos_dsp_hle PRIVATE cxx_std_23)
 # Dolphin's code, not ours: its warnings are not acted on here.
-target_compile_options(cos_dsp_hle PRIVATE -fno-strict-aliasing -w)
-# Aurora's fmt (one fmt per binary) and the host zlib (Common::HashAdler32).
-target_link_libraries(cos_dsp_hle PRIVATE fmt::fmt z)
+if (MSVC)
+    target_compile_options(cos_dsp_hle PRIVATE /clang:-fno-strict-aliasing /W0)
+    target_link_libraries(cos_dsp_hle PRIVATE fmt::fmt zlibstatic)
+else ()
+    target_compile_options(cos_dsp_hle PRIVATE -fno-strict-aliasing -w)
+    target_link_libraries(cos_dsp_hle PRIVATE fmt::fmt z)
+endif ()

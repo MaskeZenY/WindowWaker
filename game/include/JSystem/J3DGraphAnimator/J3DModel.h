@@ -6,6 +6,9 @@
 #include "JSystem/J3DGraphBase/J3DVertex.h"
 #include "dolphin/mtx/mtx.h"
 #include "dolphin/types.h"
+#if TARGET_PC
+#include "pc/pc_interp.h"
+#endif
 
 enum J3DMdlFlag {
     /* 0x00001 */ J3DMdlFlag_Unk00001 = 0x1,
@@ -73,9 +76,23 @@ public:
     void calcDrawMtx();
     void prepareShapePackets();
     MtxP getAnmMtx(int idx) { return mpNodeMtx[idx]; }
-    void setAnmMtx(int idx, Mtx mtx) { MTXCopy(mtx, mpNodeMtx[idx]); }
+    void setAnmMtx(int idx, Mtx mtx) {
+        MTXCopy(mtx, mpNodeMtx[idx]);
+#if TARGET_PC
+        if (pc_interp_should_capture()) {
+            pc_interp_record_final_mtx(mpNodeMtx[idx], mpNodeMtx[idx]);
+        }
+#endif
+    }
     MtxP getWeightAnmMtx(int idx) { return mpWeightEnvMtx[idx]; }
-    void setWeightAnmMtx(int idx, Mtx mtx) { MTXCopy(mtx, mpWeightEnvMtx[idx]); }
+    void setWeightAnmMtx(int idx, Mtx mtx) {
+        MTXCopy(mtx, mpWeightEnvMtx[idx]);
+#if TARGET_PC
+        if (pc_interp_should_capture()) {
+            pc_interp_record_final_mtx(mpWeightEnvMtx[idx], mpWeightEnvMtx[idx]);
+        }
+#endif
+    }
 
     s32 setNoUseDrawMtx();
     s32 createSingleDrawMtx(J3DModelData*);
@@ -115,7 +132,14 @@ public:
     }
 
     Mtx& getBaseTRMtx() { return mBaseTransformMtx; }
-    void setBaseTRMtx(Mtx m) { MTXCopy(m, mBaseTransformMtx); }
+    void setBaseTRMtx(Mtx m) {
+        MTXCopy(m, mBaseTransformMtx);
+#if TARGET_PC
+        if (pc_interp_should_capture()) {
+            pc_interp_record_final_mtx(mBaseTransformMtx, &mBaseTransformMtx);
+        }
+#endif
+    }
     u32 getMtxCalcMode() { return mFlags & 0x03; }
     u8 getScaleFlag(int idx) const { return mpScaleFlagArr[idx]; }
     void setScaleFlag(int idx, u8 param_1) { mpScaleFlagArr[idx] = param_1; }

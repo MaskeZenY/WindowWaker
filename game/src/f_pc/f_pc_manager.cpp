@@ -26,6 +26,9 @@
 #include "JSystem/JUtility/JUTAssert.h"
 #include "dolphin/dvd/dvd.h"
 #include "dolphin/gx/GX.h"
+#if TARGET_PC
+#include "pc/pc_clock.h"
+#endif
 
 #include "assets/black_tex.h"
 #include "assets/msg_data.h"
@@ -274,8 +277,14 @@ void fpcM_Management(fpcM_ManagementFunc callBack1, fpcM_ManagementFunc callBack
     if (checkDvdCondition())
         return;
 
+#if TARGET_PC
+    if (!pc_clock_is_separate_presentation()) {
+        cAPIGph_Painter();
+    }
+#else
 #if VERSION > VERSION_DEMO
     cAPIGph_Painter();
+#endif
 #endif
     fpcDt_Handler();
     if (!fpcPi_Handler())
@@ -288,6 +297,7 @@ void fpcM_Management(fpcM_ManagementFunc callBack1, fpcM_ManagementFunc callBack
         callBack1();
 
     fpcEx_Handler((fpcLnIt_QueueFunc)fpcM_Execute);
+
     fpcDw_Handler((fpcDw_HandlerFuncFunc)fpcM_DrawIterater, (fpcDw_HandlerFunc)fpcM_Draw);
 
     if (callBack2 != NULL)

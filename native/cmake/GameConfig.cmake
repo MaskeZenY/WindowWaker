@@ -71,64 +71,100 @@ set(COS_GAME_INCLUDE_DIRS
 
 set(COS_PC_CONFIG_HEADER ${COS_NATIVE_ROOT}/include/pc/cos_pc_config.h)
 
-set(COS_GAME_COMPILE_OPTIONS
-        # Force-included first in every unit: what Metrowerks and MSL provided implicitly.
-        "SHELL:-include ${COS_PC_CONFIG_HEADER}"
-        # The game's dolphin/types.h reached every unit through global.h; its names Aurora lacks (uint,
-        # READU32_BE, FLOAT_MIN/MAX) come from this header instead, right after the PC config header.
-        "SHELL:-include ${COS_NATIVE_ROOT}/include/sdk/cos_sdk_extras.h"
-        # Match the GameCube (and x86): plain char is signed. Same as Dusklight on ARM.
-        -fsigned-char
-        # Decision H8 (docs/NATIVE_PORT_PHASE4_6.md): the decompiled code type-puns through pointer
-        # casts everywhere (MWCC never applied type-based alias analysis to it), so clang must not
-        # either. Costs a little optimisation; Dusklight does not use the flag.
-        -fno-strict-aliasing
-        # MWCC was invoked with -Cpp_exceptions off and -RTTI off.
-        $<$<COMPILE_LANGUAGE:CXX>:-fno-exceptions>
-        $<$<COMPILE_LANGUAGE:CXX>:-fno-rtti>
-        # The game checks `new` for NULL everywhere (a full JKRSolidHeap returns NULL, and
-        # fopAcM_entrySolidHeap retries with a bigger heap when CreateHeap fails). MWCC tested the
-        # result before running constructors or writing the new[] array cookie; clang assumes a
-        # non-noexcept operator new never returns NULL and stores through it unchecked (SIGSEGV
-        # addr=0x0 in cBgW::SetTri's new[] on a full actor heap). -fcheck-new restores the check.
-        $<$<COMPILE_LANGUAGE:CXX>:-fcheck-new>
-        # The decompiled code sometimes reads a local that only one branch wrote (MWCC left stack
-        # garbage there). Clang treats that read as undefined behaviour: an uninitialized value
-        # passed to a function argument (noundef) makes the path unreachable, so the branch's
-        # NULL check is deleted (daWarphr_c::_draw dereferenced a NULL demo camera). Give every
-        # automatic variable defined contents so the branches stay as written. GCC 12+ accepts it.
-        -ftrivial-auto-var-init=zero
-        # Diagnostics only (no code change). Same set as Dusklight, plus the MWCC-isms clang
-        # rejects by default but can accept with identical meaning.
-        -Wno-multichar                       # 'ABCD' constants: identical big-endian encoding
-        -Wno-unknown-pragmas                 # #pragma optimization_level, scheduling, ...
-        -Wno-deprecated-declarations
-        -Wno-declaration-after-statement
-        $<$<COMPILE_LANGUAGE:CXX>:-Wno-trigraphs>
-        $<$<COMPILE_LANGUAGE:CXX>:-Wno-non-pod-varargs>
-        $<$<COMPILE_LANGUAGE:CXX>:-Wno-register>           # 'register' storage class (C++17)
-        $<$<COMPILE_LANGUAGE:CXX>:-Wno-c++11-narrowing>    # implicit narrowing in braces, as MWCC
-        $<$<COMPILE_LANGUAGE:CXX>:-Wno-invalid-offsetof>
-        $<$<COMPILE_LANGUAGE:CXX>:-Wno-deprecated-volatile>
-        $<$<COMPILE_LANGUAGE:CXX>:-Wno-deprecated-enum-enum-conversion>
-        $<$<COMPILE_LANGUAGE:CXX>:-Wno-deprecated-enum-float-conversion>
-        -Wno-parentheses
-        -Wno-shift-op-parentheses
-        -Wno-logical-op-parentheses
-        -Wno-bitwise-op-parentheses
-        -Wno-dangling-else
-        -Wno-unused-value
-        -Wno-tautological-compare
-        -Wno-tautological-constant-out-of-range-compare
-        -Wno-pointer-sign
-        -Wno-ignored-attributes
-        -Wno-writable-strings
-        # 64-bit diagnostics (int-to-pointer-cast, ...) stay visible on purpose: phase 4 input.
-        # A derived method that only hides a virtual one (u32 is unsigned int on the host, unsigned
-        # long on MWCC: next_msgStatus(unsigned long*) did not override fopNpc_npc_c's, and five
-        # NPCs' talks ended after one message) is an error with clang (Mac, Linux).
-        $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CXX_COMPILER_ID:Clang,AppleClang>>:-Werror=overloaded-virtual>
-        -ferror-limit=50)
+if (MSVC)
+    set(COS_GAME_COMPILE_OPTIONS
+            "/FI${COS_PC_CONFIG_HEADER}"
+            "/FI${COS_NATIVE_ROOT}/include/sdk/cos_sdk_extras.h"
+            "/clang:-fsigned-char"
+            "/clang:-fno-strict-aliasing"
+            $<$<COMPILE_LANGUAGE:CXX>:/clang:-fno-exceptions>
+            $<$<COMPILE_LANGUAGE:CXX>:/clang:-fno-rtti>
+            $<$<COMPILE_LANGUAGE:CXX>:/clang:-fcheck-new>
+            "/clang:-ftrivial-auto-var-init=zero"
+            "/clang:-Wno-multichar"
+            "/clang:-Wno-unknown-pragmas"
+            "/clang:-Wno-deprecated-declarations"
+            "/clang:-Wno-declaration-after-statement"
+            $<$<COMPILE_LANGUAGE:CXX>:/clang:-Wno-trigraphs>
+            $<$<COMPILE_LANGUAGE:CXX>:/clang:-Wno-non-pod-varargs>
+            $<$<COMPILE_LANGUAGE:CXX>:/clang:-Wno-register>
+            $<$<COMPILE_LANGUAGE:CXX>:/clang:-Wno-c++11-narrowing>
+            $<$<COMPILE_LANGUAGE:CXX>:/clang:-Wno-invalid-offsetof>
+            $<$<COMPILE_LANGUAGE:CXX>:/clang:-Wno-deprecated-volatile>
+            $<$<COMPILE_LANGUAGE:CXX>:/clang:-Wno-deprecated-enum-enum-conversion>
+            $<$<COMPILE_LANGUAGE:CXX>:/clang:-Wno-deprecated-enum-float-conversion>
+            "/clang:-Wno-parentheses"
+            "/clang:-Wno-shift-op-parentheses"
+            "/clang:-Wno-logical-op-parentheses"
+            "/clang:-Wno-bitwise-op-parentheses"
+            "/clang:-Wno-dangling-else"
+            "/clang:-Wno-unused-value"
+            "/clang:-Wno-tautological-compare"
+            "/clang:-Wno-tautological-constant-out-of-range-compare"
+            "/clang:-Wno-writable-strings"
+            "/clang:-fno-ms-compatibility"
+            $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CXX_COMPILER_ID:Clang,AppleClang>>:/clang:-Werror=overloaded-virtual>
+            "/clang:-ferror-limit=50")
+else ()
+    set(COS_GAME_COMPILE_OPTIONS
+            # Force-included first in every unit: what Metrowerks and MSL provided implicitly.
+            "SHELL:-include ${COS_PC_CONFIG_HEADER}"
+            # The game's dolphin/types.h reached every unit through global.h; its names Aurora lacks (uint,
+            # READU32_BE, FLOAT_MIN/MAX) come from this header instead, right after the PC config header.
+            "SHELL:-include ${COS_NATIVE_ROOT}/include/sdk/cos_sdk_extras.h"
+            # Match the GameCube (and x86): plain char is signed. Same as Dusklight on ARM.
+            -fsigned-char
+            # Decision H8 (docs/NATIVE_PORT_PHASE4_6.md): the decompiled code type-puns through pointer
+            # casts everywhere (MWCC never applied type-based alias analysis to it), so clang must not
+            # either. Costs a little optimisation; Dusklight does not use the flag.
+            -fno-strict-aliasing
+            # MWCC was invoked with -Cpp_exceptions off and -RTTI off.
+            $<$<COMPILE_LANGUAGE:CXX>:-fno-exceptions>
+            $<$<COMPILE_LANGUAGE:CXX>:-fno-rtti>
+            # The game checks `new` for NULL everywhere (a full JKRSolidHeap returns NULL, and
+            # fopAcM_entrySolidHeap retries with a bigger heap when CreateHeap fails). MWCC tested the
+            # result before running constructors or writing the new[] array cookie; clang assumes a
+            # non-noexcept operator new never returns NULL and stores through it unchecked (SIGSEGV
+            # addr=0x0 in cBgW::SetTri's new[] on a full actor heap). -fcheck-new restores the check.
+            $<$<COMPILE_LANGUAGE:CXX>:-fcheck-new>
+            # The decompiled code sometimes reads a local that only one branch wrote (MWCC left stack
+            # garbage there). Clang treats that read as undefined behaviour: an uninitialized value
+            # passed to a function argument (noundef) makes the path unreachable, so the branch's
+            # NULL check is deleted (daWarphr_c::_draw dereferenced a NULL demo camera). Give every
+            # automatic variable defined contents so the branches stay as written. GCC 12+ accepts it.
+            -ftrivial-auto-var-init=zero
+            # Diagnostics only (no code change). Same set as Dusklight, plus the MWCC-isms clang
+            # rejects by default but can accept with identical meaning.
+            -Wno-multichar                       # 'ABCD' constants: identical big-endian encoding
+            -Wno-unknown-pragmas                 # #pragma optimization_level, scheduling, ...
+            -Wno-deprecated-declarations
+            -Wno-declaration-after-statement
+            $<$<COMPILE_LANGUAGE:CXX>:-Wno-trigraphs>
+            $<$<COMPILE_LANGUAGE:CXX>:-Wno-non-pod-varargs>
+            $<$<COMPILE_LANGUAGE:CXX>:-Wno-register>           # 'register' storage class (C++17)
+            $<$<COMPILE_LANGUAGE:CXX>:-Wno-c++11-narrowing>    # implicit narrowing in braces, as MWCC
+            $<$<COMPILE_LANGUAGE:CXX>:-Wno-invalid-offsetof>
+            $<$<COMPILE_LANGUAGE:CXX>:-Wno-deprecated-volatile>
+            $<$<COMPILE_LANGUAGE:CXX>:-Wno-deprecated-enum-enum-conversion>
+            $<$<COMPILE_LANGUAGE:CXX>:-Wno-deprecated-enum-float-conversion>
+            -Wno-parentheses
+            -Wno-shift-op-parentheses
+            -Wno-logical-op-parentheses
+            -Wno-bitwise-op-parentheses
+            -Wno-dangling-else
+            -Wno-unused-value
+            -Wno-tautological-compare
+            -Wno-tautological-constant-out-of-range-compare
+            -Wno-pointer-sign
+            -Wno-ignored-attributes
+            -Wno-writable-strings
+            # 64-bit diagnostics (int-to-pointer-cast, ...) stay visible on purpose: phase 4 input.
+            # A derived method that only hides a virtual one (u32 is unsigned int on the host, unsigned
+            # long on MWCC: next_msgStatus(unsigned long*) did not override fopNpc_npc_c's, and five
+            # NPCs' talks ended after one message) is an error with clang (Mac, Linux).
+            $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CXX_COMPILER_ID:Clang,AppleClang>>:-Werror=overloaded-virtual>
+            -ferror-limit=50)
+endif ()
 
 # Phase 4 inventory (docs/NATIVE_PORT_PHASE4_6.md, step 4.0a): the 64-bit and missing-return
 # diagnostics, appended after the shared flags so no -Wno-... above can hide them. Turning the

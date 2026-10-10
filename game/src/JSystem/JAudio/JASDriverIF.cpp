@@ -13,9 +13,13 @@
 
 /* 8028A978-8028A9A0       .text init__Q28JASystem6DriverFv */
 void JASystem::Driver::init() {
+    fprintf(stderr, "[cos] Driver::init calling DSPInterface::initBuffer\n"); fflush(stderr);
     DSPInterface::initBuffer();
+    fprintf(stderr, "[cos] Driver::init calling TDSPChannel::initAll\n"); fflush(stderr);
     TDSPChannel::initAll();
+    fprintf(stderr, "[cos] Driver::init calling TGlobalChannel::init\n"); fflush(stderr);
     TGlobalChannel::init();
+    fprintf(stderr, "[cos] Driver::init all done!\n"); fflush(stderr);
 }
 
 u16 JASystem::Driver::MAX_MIXERLEVEL = 0x2ee0;

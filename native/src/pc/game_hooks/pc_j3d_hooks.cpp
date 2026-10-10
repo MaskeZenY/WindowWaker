@@ -16,6 +16,7 @@
 #include "JSystem/J3DGraphLoader/J3DShapeFactory.h"
 #include "JSystem/JSupport/JSupport.h"
 #include "JSystem/JUtility/JUTNameTab.h"
+#include "pc/pc_gpu_opts.h"
 #include <string.h>
 
 // ---- J3DModelLoader.cpp -----------------------------------------------------------------------
@@ -324,9 +325,25 @@ void J3DTexture::initTexObj(u16 index) {
                       (GXTlutFmt)timg->colorFormat, timg->numColors);
     }
     // The values loadTexNo writes with J3DGDSetTexLookupMode.
-    GXInitTexObjLOD(&mpTexObj[index], (GXTexFilter)timg->minFilter, (GXTexFilter)timg->magFilter,
+    GXTexFilter minFilter = (GXTexFilter)timg->minFilter;
+    GXTexFilter magFilter = (GXTexFilter)timg->magFilter;
+    GXAnisotropy maxAniso = (GXAnisotropy)timg->maxAnisotropy;
+
+    if (pc_aniso_enabled()) {
+        if (magFilter == GX_NEAR) {
+            magFilter = GX_LINEAR;
+        }
+        if (minFilter == GX_NEAR) {
+            minFilter = GX_LINEAR;
+        } else if (minFilter == GX_NEAR_MIP_NEAR || minFilter == GX_NEAR_MIP_LIN) {
+            minFilter = GX_LIN_MIP_LIN;
+        }
+        maxAniso = GX_ANISO_4;
+    }
+
+    GXInitTexObjLOD(&mpTexObj[index], minFilter, magFilter,
                     timg->minLOD * 0.125f, timg->maxLOD * 0.125f, timg->LODBias * 0.01f,
-                    timg->biasClamp, timg->doEdgeLOD, (GXAnisotropy)timg->maxAnisotropy);
+                    timg->biasClamp, timg->doEdgeLOD, maxAniso);
 }
 
 void J3DTexture::loadGX(u16 index, GXTexMapID texMapID) const {

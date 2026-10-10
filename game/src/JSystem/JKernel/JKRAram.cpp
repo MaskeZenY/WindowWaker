@@ -26,14 +26,21 @@ JKRAram* JKRAram::sAramObject;
 
 /* 802B42C4-802B4360       .text create__7JKRAramFUlUllll */
 JKRAram* JKRAram::create(u32 aram_audio_buffer_size, u32 aram_audio_graph_size, s32 stream_priority, s32 decomp_priority, s32 piece_priority) {
+    fprintf(stderr, "[cos] JKRAram::create start, sysHeap=%p\n", JKRHeap::getSystemHeap()); fflush(stderr);
     if (!sAramObject) {
+        fprintf(stderr, "[cos] JKRAram::create new JKRAram calling\n"); fflush(stderr);
         sAramObject = new (JKRHeap::getSystemHeap(), 0)
             JKRAram(aram_audio_buffer_size, aram_audio_graph_size, piece_priority);
+        fprintf(stderr, "[cos] JKRAram::create new JKRAram finished: %p\n", sAramObject); fflush(stderr);
     }
 
+    fprintf(stderr, "[cos] JKRAram::create calling JKRCreateAramStreamManager\n"); fflush(stderr);
     JKRCreateAramStreamManager(stream_priority);
+    fprintf(stderr, "[cos] JKRAram::create calling JKRCreateDecompManager\n"); fflush(stderr);
     JKRCreateDecompManager(decomp_priority);
+    fprintf(stderr, "[cos] JKRAram::create calling resume\n"); fflush(stderr);
     sAramObject->resume();
+    fprintf(stderr, "[cos] JKRAram::create done\n"); fflush(stderr);
     return sAramObject;
 }
 
@@ -42,11 +49,15 @@ OSMessageQueue JKRAram::sMessageQueue = {0};
 
 /* 802B4360-802B44D8       .text __ct__7JKRAramFUlUll */
 JKRAram::JKRAram(u32 audio_buffer_size, u32 audio_graph_size, s32 priority) : JKRThread(0x4000, 0x10, priority) {
+    fprintf(stderr, "[cos] JKRAram constructor entered\n"); fflush(stderr);
+    fprintf(stderr, "[cos] calling ARInit...\n"); fflush(stderr);
     u32 aramBase = ARInit(mStackArray, ARRAY_SIZE(mStackArray));
+    fprintf(stderr, "[cos] aramBase = %u, calling ARQInit...\n", aramBase); fflush(stderr);
     ARQInit();
+    fprintf(stderr, "[cos] ARQInit done, calling ARGetSize...\n"); fflush(stderr);
 
     u32 aramSize = ARGetSize();
-    OSReport("ARAM size = %08x\n", aramSize);
+    fprintf(stderr, "[cos] aramSize = 0x%08x\n", aramSize); fflush(stderr);
 
     mAudioMemorySize = audio_buffer_size;
     if (audio_graph_size == 0xFFFFFFFF) {
@@ -57,19 +68,25 @@ JKRAram::JKRAram(u32 audio_buffer_size, u32 audio_graph_size, s32 priority) : JK
         mAramMemorySize = (aramSize - (audio_buffer_size + audio_graph_size)) - aramBase;
     }
 
+    fprintf(stderr, "[cos] calling ARAlloc for audio: size=%u\n", mAudioMemorySize); fflush(stderr);
     mAudioMemoryPtr = ARAlloc(mAudioMemorySize);
+    fprintf(stderr, "[cos] calling ARAlloc for graph: size=%u\n", mGraphMemorySize); fflush(stderr);
     mGraphMemoryPtr = ARAlloc(mGraphMemorySize);
 
     if (mAramMemorySize) {
+        fprintf(stderr, "[cos] calling ARAlloc for user aram: size=%u\n", mAramMemorySize); fflush(stderr);
         mAramMemoryPtr = ARAlloc(mAramMemorySize);
     } else {
         mAramMemoryPtr = 0;
     }
-    OSReport("ARAM audio area %08x: %08x\n", mAudioMemoryPtr, mAudioMemorySize);
-    OSReport("ARAM graph area %08x: %08x\n", mGraphMemoryPtr, mGraphMemorySize);
-    OSReport("ARAM  user area %08x: %08x\n", mAramMemoryPtr, mAramMemorySize);
+    fprintf(stderr, "[cos] ARAM audio area %08x: %08x\n", mAudioMemoryPtr, mAudioMemorySize);
+    fprintf(stderr, "[cos] ARAM graph area %08x: %08x\n", mGraphMemoryPtr, mGraphMemorySize);
+    fprintf(stderr, "[cos] ARAM  user area %08x: %08x\n", mAramMemoryPtr, mAramMemorySize);
+    fflush(stderr);
 
+    fprintf(stderr, "[cos] creating JKRAramHeap...\n"); fflush(stderr);
     mAramHeap = new (JKRHeap::getSystemHeap(), 0) JKRAramHeap(mGraphMemoryPtr, mGraphMemorySize);
+    fprintf(stderr, "[cos] JKRAram constructor finished!\n"); fflush(stderr);
 }
 
 /* 802B44D8-802B4568       .text __dt__7JKRAramFv */

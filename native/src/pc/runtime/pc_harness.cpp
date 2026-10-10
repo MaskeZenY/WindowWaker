@@ -11,6 +11,10 @@
 #include <cstring>
 #include <ctime>
 #include <unistd.h>
+#if defined(_WIN32)
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#endif
 
 #if defined(__SWITCH__)
 #include "cos_switch.h"
@@ -128,6 +132,13 @@ bool executablePath(char* out, size_t size) {
     }
     out[n] = '\0';
     return true;
+#elif defined(_WIN32)
+    DWORD n = GetModuleFileNameA(NULL, out, (DWORD)size);
+    if (n == 0 || n >= size) {
+        out[0] = '\0';
+        return false;
+    }
+    return true;
 #else
     return false;
 #endif
@@ -147,9 +158,11 @@ void pc_harness_init(int argc, char* argv[]) {
     // it (on the Switch cos_switch_start did it already, before its defaults).
     pc_settings_load_early();
 
+#if !defined(_WIN32)
     // Line-buffered stdout: the game reports with printf/OSReport into a pipe or file; a watchdog
     // or crash exit must not lose the last lines in a full buffer.
     setvbuf(stdout, nullptr, _IOLBF, 0);
+#endif
 
     gConfig.disc = envString("COS_DISC");
     gConfig.smoke = envString("COS_SMOKE");

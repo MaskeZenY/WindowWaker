@@ -30,6 +30,8 @@
 #include "pc/pc_dynres.h"
 #include "pc/pc_gpu_opts.h"
 #include "pc/pc_hd_textures.h"
+#include "pc/pc_aspect.h"
+#include <dolphin/vi.h>
 
 #include "pc_internal.h"
 
@@ -174,6 +176,18 @@ uint32_t readKeyboard() {
     if (keys == nullptr || count <= SDL_SCANCODE_F1) {
         return 0;
     }
+    static bool sPrevF11 = false;
+    bool curF11 = (count > SDL_SCANCODE_F11 && keys[SDL_SCANCODE_F11]) ||
+                  (count > SDL_SCANCODE_RETURN && keys[SDL_SCANCODE_RETURN] &&
+                   ((count > SDL_SCANCODE_LALT && keys[SDL_SCANCODE_LALT]) ||
+                    (count > SDL_SCANCODE_RALT && keys[SDL_SCANCODE_RALT])));
+    if (curF11 && !sPrevF11) {
+        bool fs = !VIGetWindowFullscreen();
+        VISetWindowFullscreen(fs);
+        pc_settings_set("COS_FULLSCREEN", fs ? "1" : "0");
+    }
+    sPrevF11 = curF11;
+
     uint32_t k = 0;
     k |= keys[SDL_SCANCODE_F1] ? kCombo : 0;
     k |= keys[SDL_SCANCODE_UP] ? kUp : 0;
@@ -409,6 +423,18 @@ void applyFbScale(const char*, const char* v, void*) {
     const float scale = (float)atof(v);
     setFrameBufferScale(scale);
     pc_dynres_configure(pc_settings_get("COS_DYNRES"), scale);
+    if (scale > 0.0f && !VIGetWindowFullscreen()) {
+        int h = (int)(480.0f * scale + 0.5f);
+        int w = (int)(h * pc_aspect_ratio() + 0.5f);
+        VISetWindowSize(w, h);
+        VICenterWindow();
+    }
+}
+void applyFullscreen(const char*, const char* v, void*) {
+    VISetWindowFullscreen(strcmp(v, "1") == 0);
+}
+void applyTargetFps(const char*, const char* v, void*) {
+    pc_target_fps_set(atoi(v));
 }
 void applyDynres(const char*, const char* v, void*) {
     pc_dynres_configure(v, (float)atof(pc_settings_get("COS_FB_SCALE")));
@@ -416,6 +442,7 @@ void applyDynres(const char*, const char* v, void*) {
 void applyMist(const char*, const char* v, void*) { pc_mist_lowres_set(atoi(v)); }
 void applySky(const char*, const char* v, void*) { pc_sky_lowres_set(atoi(v)); }
 void applyDof(const char*, const char* v, void*) { pc_dof_set(strcmp(v, "0") != 0); }
+void applyAniso(const char*, const char* v, void*) { pc_aniso_set(strcmp(v, "0") != 0); }
 void applyCameraInvertX(const char*, const char* v, void*) { pc_camera_invert_x_set(strcmp(v, "1") == 0); }
 void applyCameraInvertY(const char*, const char* v, void*) { pc_camera_invert_y_set(strcmp(v, "1") == 0); }
 void applyShadow(const char*, const char* v, void*) {
@@ -442,12 +469,20 @@ void applyGpuGroups(const char*, const char* v, void*) { pc_gpu_groups_set(atoi(
 
 #define CHOICES(name) name, (int)(sizeof(name) / sizeof(name[0]))
 
+const PcSettingChoice kTargetFps[] = {
+    {"30", "30 FPS (GameCube)", "30 FPS (GameCube)"},
+    {"60", "60 FPS (Fluide)", "60 FPS (Smooth)"},
+    {"120", "120 FPS (Ultra)", "120 FPS (Ultra)"},
+};
+
 const PcSettingChoice kFbScale[] = {
 #if !defined(__SWITCH__)
     {"0", "Tamaño de la ventana", "Window size"},
 #endif
-    {"1.0", "854x480 (1.0)"},  {"1.125", "960x540 (1.125)"}, {"1.25", "1067x600 (1.25)"},
-    {"1.5", "1280x720 (1.5)"}, {"2.0", "1707x960 (2.0)"},    {"2.25", "1920x1080 (2.25)"},
+    {"1.0", "854x480 (480p SD)"},  {"1.125", "960x540 (540p qHD)"}, {"1.25", "1067x600 (600p)"},
+    {"1.5", "1280x720 (720p HD)"}, {"2.0", "1707x960 (960p)"},    {"2.25", "1920x1080 (1080p FHD)"},
+    {"3.0", "2560x1440 (2K QHD)"}, {"3.375", "2880x1620 (3K)"},   {"4.0", "3413x1920 (3.2K)"},
+    {"4.5", "3840x2160 (4K UHD)"}, {"6.0", "5120x2880 (5K Ultra)"},
 };
 const PcSettingChoice kAspect[] = {{"16:9", "16:9 (panorámica)", "16:9 (widescreen)"}, {"4:3", "4:3 (GameCube)"}, {"16:10", "16:10"}};
 const PcSettingChoice kOnOff[] = {{"0", "Desactivado", "Off"}, {"1", "Activado", "On"}};
@@ -482,6 +517,16 @@ const PcSettingChoice kHdStats[] = {{"0", "Desactivadas", "Off"}, {"150", "Cada 
 
 const PcSettingDesc kBuiltins[] = {
     // Gráficos
+    {"COS_TARGET_FPS", "Taux de rafraichissement (FPS)",
+     "Frecuencia de cuadros por segundo: 30 FPS clásico o 60 FPS fluido.",
+     PC_SETTING_TAB_GRAPHICS, 0, CHOICES(kTargetFps), "60", applyTargetFps, nullptr, 1,
+     "Framerate (FPS)",
+     "Target framerate: 30 FPS classic or 60 FPS smooth native."},
+    {"COS_FULLSCREEN", "Pantalla completa (Fullscreen)",
+     "Activa o desactiva el modo de pantalla completa (atajo: F11 o Alt+Intro).",
+     PC_SETTING_TAB_GRAPHICS, 0, CHOICES(kOnOff), "0", applyFullscreen, nullptr, 5,
+     "Fullscreen",
+     "Enables or disables fullscreen mode (shortcut: F11 or Alt+Enter)."},
     {"COS_FB_SCALE", "Resolución interna",
      "Resolución a la que se dibuja el juego antes de escalar a la pantalla. Más baja = más rápido.",
      PC_SETTING_TAB_GRAPHICS, PC_SETTING_PER_MODE, CHOICES(kFbScale), kSwitch ? "1.5" : "0", applyFbScale,
@@ -506,6 +551,21 @@ const PcSettingDesc kBuiltins[] = {
      PC_SETTING_TAB_GRAPHICS, 0, CHOICES(kOnOff), "1", applyDof, nullptr, 50,
      "Depth of field",
      "Blur of the distant scenery, as on the GameCube."},
+    {"COS_ANISO", "Filtrado anisotrópico / Texturas",
+     "Filtro anisotrópico 16x y filtrado lineal para eliminar el pixelado de las texturas.",
+     PC_SETTING_TAB_GRAPHICS, 0, CHOICES(kOnOff), "1", applyAniso, nullptr, 55,
+     "Anisotropic filtering / Textures",
+     "16x anisotropic and linear filtering to eliminate pixelated textures."},
+    {"COS_SHADOW_OFFSCREEN", "Sombras en tiempo real (HD)",
+     "Dibuja las sombras fuera del EFB a resolución completa para bordes nítidos sin pixelado.",
+     PC_SETTING_TAB_GRAPHICS, 0, CHOICES(kShadow), "1", applyShadow, nullptr, 60,
+     "Real-time shadows (HD)",
+     "Renders shadows outside the EFB at full resolution for sharp, clean edges."},
+    {"COS_BLOOM", "Bloom / Estilo HD (Wii U)",
+     "Iluminación cálida, bloom solar y colores vivos como en la versión HD de Wii U.",
+     PC_SETTING_TAB_GRAPHICS, PC_SETTING_RESTART, CHOICES(kOnOff), "1", nullptr, nullptr, 65,
+     "Bloom / HD style (Wii U)",
+     "Warm sunlight, solar bloom and vibrant colors as in the Wii U HD version."},
     {"COS_CAMERA_INVERT_X", "Invertir cámara horizontal",
      "El stick C gira la cámara al revés en horizontal.",
      PC_SETTING_TAB_GRAPHICS, 0, CHOICES(kOnOff), "0", applyCameraInvertX, nullptr, 90,
@@ -706,6 +766,18 @@ void cycle(const PcSettingDesc* d, int dir) {
     writef(STDERR_FILENO, "[cos] menu: %s%s%s -> %s\n", d->key, (d->flags & PC_SETTING_PER_MODE) ? "@" : "",
            (d->flags & PC_SETTING_PER_MODE) ? (mode == PC_MODE_DOCKED ? "docked" : "handheld") : "", value);
     pc_settings_set_mode(d->key, mode, value);
+
+    const bool restart = (d->flags & PC_SETTING_RESTART) != 0;
+    const char* valLabel = choiceLabel(d, value);
+    char msg[256];
+    if (restart) {
+        snprintf(msg, sizeof(msg), "[!] %s : %s  (Enregistre, actif au redemarrage)",
+                 settingLabel(d), valLabel != nullptr ? valLabel : value);
+    } else {
+        snprintf(msg, sizeof(msg), "[OK] %s : %s  (Applique et sauvegarde !)",
+                 settingLabel(d), valLabel != nullptr ? valLabel : value);
+    }
+    toast(msg);
 }
 
 void setOpen(bool open) {
@@ -989,6 +1061,16 @@ void drawMenu() {
     ImGui::SetWindowFocus();
 
     ImGui::TextColored(kAccent, "%s", T("Opciones", "Options"));
+    ImGui::SameLine();
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.18f, 0.58f, 0.28f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.25f, 0.72f, 0.38f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.14f, 0.48f, 0.22f, 1.0f));
+    if (ImGui::Button("  Appliquer (Apply)  ")) {
+        toast("[OK] Options appliquees et sauvegardees !");
+        setOpen(false);
+    }
+    ImGui::PopStyleColor(3);
+
     const std::string mode = std::string(T("Modo: ", "Mode: ")) + modeName(pc_settings_mode());
     ImGui::SameLine(ImGui::GetWindowWidth() - ImGui::CalcTextSize(mode.c_str()).x - ImGui::GetStyle().WindowPadding.x);
     ImGui::TextColored(kDim, "%s", mode.c_str());
@@ -1099,7 +1181,8 @@ void drawMenu() {
     ImGui::EndChild();
     ImGui::Separator();
     if (!m.toast.empty() && pc_frame_count() < m.toastUntil) {
-        ImGui::TextColored(kAccent, "%s", m.toast.c_str());
+        const bool isOk = m.toast.find("[OK]") != std::string::npos || m.toast.find("applique") != std::string::npos;
+        ImGui::TextColored(isOk ? ImVec4(0.35f, 0.95f, 0.45f, 1.0f) : kAccent, "%s", m.toast.c_str());
     } else {
         ImGui::PushTextWrapPos(0.0f);
         ImGui::TextUnformatted(help.c_str());
@@ -1108,10 +1191,10 @@ void drawMenu() {
     ImGui::SetCursorPosY(ImGui::GetWindowHeight() - ImGui::GetTextLineHeightWithSpacing() -
                          ImGui::GetStyle().WindowPadding.y);
     ImGui::TextColored(kDim, "%s",
-                       kSwitch ? T("A: cambiar   B: cerrar   L/R: pestaña   Menos: cerrar",
+                       kSwitch ? T("A: changer   B: fermer   L/R: onglet   Moins: fermer",
                                    "A: change   B: close   L/R: tab   Minus: close")
-                               : T("A/Intro: cambiar   B/Esc: cerrar   L/R, Q/E: pestaña   F1: cerrar",
-                                   "A/Enter: change   B/Esc: close   L/R, Q/E: tab   F1: close"));
+                               : T("A/Intro: changer   B/Esc: fermer (sauvegarde auto)   L/R, Q/E: onglet   F1: fermer",
+                                   "A/Enter: change   B/Esc: close (auto-saved)   L/R, Q/E: tab   F1: close"));
     ImGui::End();
 }
 

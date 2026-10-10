@@ -27,7 +27,11 @@
 #include "m_Do/m_Do_machine.h"
 #include "m_Do/m_Do_printf.h"
 #include <stdio.h>
+#include "f_pc/f_pc_manager.h"
+#include "f_pc/f_pc_draw.h"
+#include "SSystem/SComponent/c_API_graphic.h"
 #if TARGET_PC
+#include "pc/pc_clock.h"
 #include "pc/pc_harness.h"
 #endif
 #if TARGET_PC
@@ -416,9 +420,11 @@ void debug() {
 
 /* 80006338-80006464       .text main01__Fv */
 void main01() {
+    fprintf(stderr, "[cos] entering main01\n"); fflush(stderr);
     // Setup heaps, setup exception manager, set RNG seed, setup DVDError Thread, setup Memory card
     // Thread
     mDoMch_Create();
+    fprintf(stderr, "[cos] mDoMch_Create done\n"); fflush(stderr);
 #if TARGET_PC
     // Milestone M2 (docs/NATIVE_PORT_PHASE4_6.md): every heap made and consistent.
     pc_heaps_created();
@@ -480,6 +486,7 @@ void main01() {
         // including the GX that fapGm_Execute encodes and the VI retraces JFWDisplay's wait makes,
         // belongs to this frame.
         pc_frame_begin();
+        const PcFrameTiming timing = pc_clock_advance();
 #endif
 #if VERSION > VERSION_DEMO
         frame++;
@@ -492,16 +499,41 @@ void main01() {
         }
 
 #if TARGET_PC
-        // Step 6.7 (pc_frame.cpp): the phase split of COS_PERF / COS_PERF_EVERY.
-        pc_perf_begin(PC_PERF_CPD_READ);
-        mDoCPd_Read();     // read controller input
-        pc_perf_end(PC_PERF_CPD_READ);
-        pc_perf_begin(PC_PERF_AUD_EXECUTE);
-        mDoAud_Execute();  // handle audio execution
-        pc_perf_end(PC_PERF_AUD_EXECUTE);
-        pc_perf_begin(PC_PERF_GAME);
-        fapGm_Execute();   // handle game execution
-        pc_perf_end(PC_PERF_GAME);
+        if (timing.separatePresentation) {
+            if (timing.numSimTicks > 0) {
+                pc_interp_begin_frame(0.0f);
+                for (int i = 0; i < timing.numSimTicks; ++i) {
+                    pc_interp_begin_sim_tick();
+                    pc_clock_begin_sim_tick();
+                    pc_perf_begin(PC_PERF_CPD_READ);
+                    mDoCPd_Read();     // read controller input
+                    pc_perf_end(PC_PERF_CPD_READ);
+                    pc_perf_begin(PC_PERF_AUD_EXECUTE);
+                    mDoAud_Execute();  // handle audio execution
+                    pc_perf_end(PC_PERF_AUD_EXECUTE);
+                    pc_perf_begin(PC_PERF_GAME);
+                    fapGm_Execute();   // handle game simulation (30Hz fixed)
+                    pc_perf_end(PC_PERF_GAME);
+                    pc_clock_commit_sim_tick();
+                }
+            }
+
+            const float step = pc_clock_sample_interp_step();
+            pc_interp_begin_presentation(step);
+            fpcDw_Handler((fpcDw_HandlerFuncFunc)fpcM_DrawIterater, (fpcDw_HandlerFunc)fpcM_Draw);
+            cAPIGph_Painter();
+            pc_interp_end_presentation();
+        } else {
+            pc_perf_begin(PC_PERF_CPD_READ);
+            mDoCPd_Read();     // read controller input
+            pc_perf_end(PC_PERF_CPD_READ);
+            pc_perf_begin(PC_PERF_AUD_EXECUTE);
+            mDoAud_Execute();  // handle audio execution
+            pc_perf_end(PC_PERF_AUD_EXECUTE);
+            pc_perf_begin(PC_PERF_GAME);
+            fapGm_Execute();   // handle game execution
+            pc_perf_end(PC_PERF_GAME);
+        }
 #else
         mDoCPd_Read();     // read controller input
         mDoAud_Execute();  // handle audio execution
