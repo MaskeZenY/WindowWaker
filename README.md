@@ -6,6 +6,20 @@
 
 ---
 
+## 🎬 Gameplay Showcase (1080p 60 FPS)
+
+<div align="center">
+  <a href="https://github.com/MaskeZenY/WindowWaker/blob/main/docs/preview.mp4">
+    <img src="docs/preview.gif" alt="WindowWaker 60 FPS Gameplay Preview" width="720">
+  </a>
+  <p>
+    <b>▶ <a href="https://github.com/MaskeZenY/WindowWaker/blob/main/docs/preview.mp4">Watch full 1080p 60 FPS gameplay on GitHub Video Player</a></b> &nbsp;|&nbsp; 
+    <b>💾 <a href="https://github.com/MaskeZenY/WindowWaker/raw/main/docs/preview.mp4">Download MP4</a></b>
+  </p>
+</div>
+
+---
+
 ## What it is
 
 SwitchWaker is an unofficial native PC port of the 2002 GameCube classic *The Legend of Zelda: The Wind Waker* (disc ID `GZLE01`, USA, revision 0). The game is compiled directly from the community C++ decompilation ([`game/`](game/README.md)) and rendered natively with [Aurora](https://github.com/encounter/aurora) (WebGPU / Dawn); there is **no CPU emulation**.
